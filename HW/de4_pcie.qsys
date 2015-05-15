@@ -118,11 +118,6 @@
  <instanceScript></instanceScript>
  <interface name="clk" internal="clk_0.clk_in" type="clock" dir="end" />
  <interface
-   name="irqflagtap"
-   internal="AvalonTop_0.irqflagtap"
-   type="conduit"
-   dir="end" />
- <interface
    name="pcie_clocks_sim"
    internal="pcie_hard_ip_0.clocks_sim"
    type="conduit"

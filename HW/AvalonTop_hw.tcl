@@ -136,19 +136,3 @@ set_interface_assignment avalon_slave_0 embeddedsw.configuration.isFlash 0
 set_interface_assignment avalon_slave_0 embeddedsw.configuration.isMemoryDevice 0
 set_interface_assignment avalon_slave_0 embeddedsw.configuration.isNonVolatileStorage 0
 set_interface_assignment avalon_slave_0 embeddedsw.configuration.isPrintableDevice 0
-
-
-# 
-# connection point irqflagtap
-# 
-add_interface irqflagtap conduit end
-set_interface_property irqflagtap associatedClock clock
-set_interface_property irqflagtap associatedReset reset
-set_interface_property irqflagtap ENABLED true
-set_interface_property irqflagtap EXPORT_OF ""
-set_interface_property irqflagtap PORT_NAME_MAP ""
-set_interface_property irqflagtap CMSIS_SVD_VARIABLES ""
-set_interface_property irqflagtap SVD_ADDRESS_GROUP ""
-
-add_interface_port irqflagtap irqflagtap irqflagtap Output 1
-

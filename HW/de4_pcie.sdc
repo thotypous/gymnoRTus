@@ -45,6 +45,8 @@ create_clock -name {alt_cal_edge_detect_ff1_clk} -period 20.000 -waveform { 0.00
 create_clock -name {alt_cal_edge_detect_ff1q_clk} -period 20.000 -waveform { 0.000 10.000 } [get_pins -compatibility_mode {*|*pd*_det|alt_edge_det_ff1|q}]
 create_clock -name {OSC_50} -period 20.000 -waveform { 0.000 10.000 } [get_ports {OSC_50_*}]
 
+derive_pll_clocks -create_base_clocks
+
 
 #**************************************************************
 # Create Generated Clock
@@ -66,6 +68,8 @@ set_clock_uncertainty -rise_from [get_clocks {OSC_50}] -rise_to [get_clocks {OSC
 set_clock_uncertainty -rise_from [get_clocks {OSC_50}] -fall_to [get_clocks {OSC_50}]  0.060  
 set_clock_uncertainty -fall_from [get_clocks {OSC_50}] -rise_to [get_clocks {OSC_50}]  0.060  
 set_clock_uncertainty -fall_from [get_clocks {OSC_50}] -fall_to [get_clocks {OSC_50}]  0.060  
+
+derive_clock_uncertainty
 
 
 #**************************************************************
@@ -134,4 +138,24 @@ set_multicycle_path -hold -end -from [get_keepers {*tl_cfg_ctl[*]}] 2
 #**************************************************************
 # Set Input Transition
 #**************************************************************
+
+
+# tsu/th constraints
+
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -max 86.25ns [get_ports {AD_DOUT0}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -min 8.000ns [get_ports {AD_DOUT0}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -max 86.25ns [get_ports {AD_DOUT1}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -min 8.000ns [get_ports {AD_DOUT1}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -max 86.25ns [get_ports {AD_SSTRB0}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -min 8.000ns [get_ports {AD_SSTRB0}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -max 86.25ns [get_ports {AD_SSTRB1}]
+set_input_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -min 8.000ns [get_ports {AD_SSTRB1}]
+
+
+# tco constraints
+
+set_output_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -max 41.25ns [get_ports {AD_DIN}]
+set_output_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -min -8.000ns [get_ports {AD_DIN}]
+set_output_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -max 41.25ns [get_ports {AD_SCLK}]
+set_output_delay -clock "SCLK" -reference_pin [get_ports CLK_SCLK] -min -8.000ns [get_ports {AD_SCLK}]
 

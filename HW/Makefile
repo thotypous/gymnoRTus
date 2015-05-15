@@ -21,3 +21,4 @@ clean:
 	rm -f de4_pcie.qsf
 	rm -rf db incremental_db output_files
 	rm -f PLLJ_PLLSPE_INFO.txt
+	rm -f de4_pcie_assignment_defaults.qdf
