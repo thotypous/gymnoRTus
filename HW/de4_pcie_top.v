@@ -47,6 +47,8 @@ module de4_pcie_top(
         .adc_ad_din                              (AD_DIN),
         .adc_ad_sclk_clk                         (AD_SCLK),
 
+        .led_led                                 (LED),
+
         .pcie_reconfig_gxbclk_clk                (OSC_50_BANK2),
         .pcie_reconfig_fromgxb_0_data            (pcie_reconfig_fromgxb_0_data),
         .pcie_reconfig_togxb_data                (pcie_reconfig_togxb_data),

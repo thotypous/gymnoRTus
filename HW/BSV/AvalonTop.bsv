@@ -12,10 +12,12 @@ interface AvalonTop;
 	interface AvalonSlaveWires#(AvalonAddrSize, AvalonDataSize) avalonWires;
 	(* prefix="" *)
 	interface DualADWires adWires;
+	(* always_ready, result="LED" *)
+	method Bit#(8) getLed;
 endinterface
 
 (* synthesize, clock_prefix="clk", reset_prefix="reset_n" *)
-module mkAvalonTop(Clock adsclk, AvalonTop ifc);
+module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	AvalonSlave#(AvalonAddrSize, AvalonDataSize) avalon <- mkAvalonSlave;
 	DualAD adc <- mkDualAD(adsclk);
@@ -35,5 +37,6 @@ module mkAvalonTop(Clock adsclk, AvalonTop ifc);
 	interface irqWires = irqSender(irqFlag);
 	interface avalonWires = avalon.slaveWires;
 	interface adWires = adc.wires;
+	method Bit#(8) getLed = 0;
 
 endmodule
