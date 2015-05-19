@@ -1,5 +1,6 @@
 import AvalonSlave::*;
 import InterruptSender::*;
+import DualAD::*;
 
 typedef 2 AvalonAddrSize;
 typedef 32 AvalonDataSize;
@@ -9,11 +10,15 @@ interface AvalonTop;
 	interface InterruptSenderWires irqWires;
 	(* prefix="" *)
 	interface AvalonSlaveWires#(AvalonAddrSize, AvalonDataSize) avalonWires;
+	(* prefix="" *)
+	interface DualADWires adWires;
 endinterface
 
 (* synthesize, clock_prefix="clk", reset_prefix="reset_n" *)
-module mkAvalonTop(AvalonTop);
+module mkAvalonTop(Clock adsclk, AvalonTop ifc);
+
 	AvalonSlave#(AvalonAddrSize, AvalonDataSize) avalon <- mkAvalonSlave;
+	DualAD adc <- mkDualAD(adsclk);
 
 	Reg#(Bit#(AvalonDataSize)) ireg <- mkReg(0);
 	Reg#(Bool) irqFlag <- mkReg(False);
@@ -29,4 +34,6 @@ module mkAvalonTop(AvalonTop);
 
 	interface irqWires = irqSender(irqFlag);
 	interface avalonWires = avalon.slaveWires;
+	interface adWires = adc.wires;
+
 endmodule
