@@ -1,15 +1,20 @@
 import AvalonSlave::*;
+import AvalonMaster::*;
 import InterruptSender::*;
 import DualAD::*;
 
-typedef 2 AvalonAddrSize;
-typedef 32 AvalonDataSize;
+typedef 2  PciBarAddrSize;
+typedef 32 PciBarDataSize;
+typedef 32 PciDmaAddrSize;
+typedef 64 PciDmaDataSize;
 
 interface AvalonTop;
 	(* prefix="" *)
 	interface InterruptSenderWires irqWires;
 	(* prefix="" *)
-	interface AvalonSlaveWires#(AvalonAddrSize, AvalonDataSize) avalonWires;
+	interface AvalonSlaveWires#(PciBarAddrSize, PciBarDataSize) barWires;
+	(* prefix="dma" *)
+	interface AvalonMasterWires#(PciDmaAddrSize, PciDmaDataSize) dmaWires;
 	(* prefix="" *)
 	interface DualADWires adWires;
 	(* always_ready, result="LED" *)
@@ -19,24 +24,26 @@ endinterface
 (* synthesize, clock_prefix="clk", reset_prefix="reset_n" *)
 module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
-	AvalonSlave#(AvalonAddrSize, AvalonDataSize) avalon <- mkAvalonSlave;
+	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
+	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
 	DualAD adc <- mkDualAD(adsclk);
 
-	Reg#(Bit#(AvalonDataSize)) ireg <- mkReg(0);
+	Reg#(Bit#(PciBarDataSize)) ireg <- mkReg(0);
 	Reg#(Bool) irqFlag <- mkReg(False);
 
 	rule handleCmd;
-		let cmd <- avalon.busClient.request.get;
+		let cmd <- pcibar.busClient.request.get;
 		(*split*)
 		case (cmd) matches
 			tagged AvalonRequest{addr: .*, data: .*, command: Read}:
-				avalon.busClient.response.put(32'hBADC0FFE);
+				pcibar.busClient.response.put(32'hBADC0FFE);
 		endcase
 	endrule
 
 	interface irqWires = irqSender(irqFlag);
-	interface avalonWires = avalon.slaveWires;
-	interface adWires = adc.wires;
+	interface barWires = pcibar.slaveWires;
+	interface dmaWires = pcidma.masterWires;
+	interface adWires  = adc.wires;
 	method Bit#(8) getLed = 0;
 
 endmodule

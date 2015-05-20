@@ -83,6 +83,14 @@
          type = "String";
       }
    }
+   element de4_pcie
+   {
+      datum _originalDeviceFamily
+      {
+         value = "Stratix IV";
+         type = "String";
+      }
+   }
    element pcie_hard_ip_0
    {
       datum _sortIndex
@@ -113,7 +121,7 @@
       }
       datum baseAddress
       {
-         value = "2147483648";
+         value = "0";
          type = "String";
       }
    }
@@ -412,7 +420,7 @@
   <parameter name="BAR Type">32 bit Non-Prefetchable,Not used,32 bit Non-Prefetchable,Not used,Not used,Not used</parameter>
   <parameter name="CB_A2P_ADDR_MAP_IS_FIXED" value="1" />
   <parameter name="CB_A2P_ADDR_MAP_NUM_ENTRIES" value="1" />
-  <parameter name="CB_A2P_ADDR_MAP_PASS_THRU_BITS" value="31" />
+  <parameter name="CB_A2P_ADDR_MAP_PASS_THRU_BITS" value="32" />
   <parameter name="CB_P2A_FIXED_AVALON_ADDR_B0" value="0" />
   <parameter name="CB_P2A_FIXED_AVALON_ADDR_B1" value="0" />
   <parameter name="CB_P2A_FIXED_AVALON_ADDR_B2" value="0" />
@@ -523,6 +531,15 @@
   <parameter name="use_crc_forwarding" value="false" />
   <parameter name="vendor_id" value="4466" />
  </module>
+ <connection
+   kind="avalon"
+   version="15.0"
+   start="AvalonTop_0.avalon_master"
+   end="pcie_hard_ip_0.txs">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0000" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
  <connection
    kind="avalon"
    version="15.0"
