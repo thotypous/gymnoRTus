@@ -3,11 +3,13 @@
 mk*.v
 
 # Quartus II
-PLLJ_PLLSPE_INFO.txt
 *.sopcinfo
 *.qdf
-db
-incremental_db
-output_files
+*.qws
+/PLLJ_PLLSPE_INFO.txt
+/.qsys_edit
+/db
+/incremental_db
+/output_files
 /de4_pcie.qsf
 /de4_pcie
