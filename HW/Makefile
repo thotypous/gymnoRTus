@@ -20,7 +20,7 @@ mkAvalonTop.v: $(wildcard BSV/*.bsv)
 clean:
 	rm -f BSV/*.bo mkAvalonTop.v
 	rm -rf de4_pcie de4_pcie.sopcinfo
-	rm -f de4_pcie.qsf
+	rm -f de4_pcie.qsf de4_pcie.qpf
 	rm -rf db incremental_db output_files
 	rm -f PLLJ_PLLSPE_INFO.txt
 	rm -f de4_pcie_assignment_defaults.qdf

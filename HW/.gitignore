@@ -5,6 +5,7 @@ mk*.v
 # Quartus II
 *.sopcinfo
 *.qdf
+*.qpf
 *.qws
 /PLLJ_PLLSPE_INFO.txt
 /.qsys_edit
