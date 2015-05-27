@@ -27,6 +27,7 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
 	DualAD adc <- mkDualAD(adsclk);
+	Reg#(Sample) test <- mkRegU;
 
 	Reg#(Bit#(PciBarDataSize)) ireg <- mkReg(0);
 	Reg#(Bool) irqFlag <- mkReg(False);
@@ -40,10 +41,15 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		endcase
 	endrule
 
+	rule getSample;
+		let sample <- adc.acq.get;
+		test <= sample;
+	endrule
+
 	interface irqWires = irqSender(irqFlag);
 	interface barWires = pcibar.slaveWires;
 	interface dmaWires = pcidma.masterWires;
 	interface adWires  = adc.wires;
-	method Bit#(8) getLed = 0;
+	method Bit#(8) getLed = truncate(test);
 
 endmodule
