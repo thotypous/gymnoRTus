@@ -10,9 +10,14 @@ import MIMO::*;
 export DualAD(..);
 export DualADWires(..);
 export Sample(..);
+export ChNum(..);
+export ChSample(..);
 export mkDualAD;
 
 typedef Bit#(12) Sample;
+typedef Bit#(4) ChNum;
+typedef Bit#(3) ChSel;
+typedef Bit#(8) Byte;
 
 interface DualADWires;
 	(* always_ready, result="AD_DIN" *)
@@ -27,14 +32,18 @@ interface DualADWires;
 	method Action putData1((*port="AD_DOUT1"*)Bit#(1) v);
 endinterface
 
+typedef Tuple2#(ChNum, Sample) ChSample;
+
 interface DualAD;
 	interface DualADWires wires;
-	interface Get#(Sample) acq;
+	interface Get#(ChSample) acq;
 endinterface
+
+typedef Tuple3#(ChSel, Sample, Sample) InternalTuple;
 
 interface DualADInternal;
 	interface DualADWires wires;
-	interface Get#(Tuple2#(Sample, Sample)) acq;
+	interface Get#(InternalTuple) acq;
 endinterface
 
 typedef enum {
@@ -57,13 +66,13 @@ typedef enum {
 // See MAX1280 datasheet p. 14, Table 1
 typedef struct {
 	ReservedOne#(1) start;
-	Bit#(3) sel;
+	ChSel sel;
 	UniBip unibip;
 	SglDif sgldif;
 	OperatingMode opmode;
 } ControlByte deriving (Eq, Bits);
 
-function Bit#(8) makeControlByte(Bit#(3) sel);
+function Byte makeControlByte(ChSel sel);
 	ControlByte ctrl;
 	ctrl.sel = sel;
 	ctrl.unibip = Unipolar;
@@ -73,13 +82,19 @@ function Bit#(8) makeControlByte(Bit#(3) sel);
 endfunction
 
 module mkDualADInternal(DualADInternal);
-	Reg#(Bit#(1)) din <- mkReg(0);
+	// State machine counter
 	Array#(Reg#(Bit#(4))) cnt <- mkCReg(3, 0);
+
+	// I/O related
+	Reg#(Bit#(1)) din <- mkReg(0);
 	Wire#(Bit#(1)) dout0 <- mkWire;
 	Wire#(Bit#(1)) dout1 <- mkWire;
 	Reg#(Sample) shiftReg0 <- mkRegU;
 	Reg#(Sample) shiftReg1 <- mkRegU;
-	Reg#(Bit#(8)) ctrl <- mkRegU;
+
+	// Channel and control byte
+	Reg#(ChSel) ch <- mkReg(0);
+	Reg#(Byte) ctrl <- mkReg(makeControlByte(0));
 
 	// Number of the cycle during which the SSTRB pulse should occur.
 	// See MAX1280 datasheet p. 13, Figure 6
@@ -89,19 +104,30 @@ module mkDualADInternal(DualADInternal);
 	// delay of 2 cycles because of writes to the cnt and din registers.
 	let cycleAfterStrobeAdjusted = cycleAfterStrobe + 4'd2;
 
+	(* no_implicit_conditions, fire_when_enabled *)
 	rule dinFeed;
 		(*split*)
 		if (cnt[0] < 8) begin
+			// Time to send a bit of the control byte
 			din <= ctrl[7];
 			ctrl <= ctrl << 1;
 		end else begin
+			// Time to be quiet
 			din <= 0;
+
+			if (cnt[0] == 4'b1111) begin
+				// Construct the next control byte
+				let nextChannel = ch + 1;
+				ctrl <= makeControlByte(nextChannel);
+				ch <= nextChannel;
+			end
 		end
 		cnt[0] <= cnt[0] + 1;
 	endrule
 
 	let doutBit = cnt[0] - cycleAfterStrobeAdjusted;
 
+	(* fire_when_enabled *)
 	rule doutHandle(doutBit < 12);
 		shiftReg0 <= (shiftReg0 << 1) | extend(dout0);
 		shiftReg1 <= (shiftReg1 << 1) | extend(dout1);
@@ -116,8 +142,10 @@ module mkDualADInternal(DualADInternal);
 	endinterface
 
 	interface Get acq;
-		method ActionValue#(Tuple2#(Sample, Sample)) get if (doutBit == 12);
-			return tuple2(shiftReg0, shiftReg1);
+		method ActionValue#(InternalTuple) get if (doutBit == 12);
+			// At the end of the conversion, ch will already be incremented.
+			// See MAX1280 datasheet p. 16, Figure 8
+			return tuple3(ch - 1, shiftReg0, shiftReg1);
 		endmethod
 	endinterface
 endmodule
@@ -126,21 +154,23 @@ module mkDualAD(Clock sClk, DualAD ifc);
 	Reset sRst <- mkAsyncResetFromCR(2, sClk);
 	let m <- mkDualADInternal(clocked_by sClk, reset_by sRst);
 
-	SyncFIFOIfc#(Tuple2#(Sample, Sample)) sync <- mkSyncFIFOToCC(2, sClk, sRst);
-	MIMO#(2, 1, 2, Sample) mimo <- mkMIMO(defaultValue);
+	SyncFIFOIfc#(InternalTuple) sync <- mkSyncFIFOToCC(2, sClk, sRst);
+	MIMO#(2, 1, 2, ChSample) mimo <- mkMIMO(defaultValue);
 
 	mkConnection(m.acq, toPut(sync));
 
-	function tupleToVector(tuple) = cons(tpl_1(tuple), cons(tpl_2(tuple), nil));
-
 	rule mimoPut;
-		let data <- toGet(sync).get;
-		mimo.enq(2, tupleToVector(data));
+		sync.deq;
+		match {.chsel, .sample0, .sample1} = sync.first;
+		mimo.enq(2,                           cons(
+			tuple2({1'b0, chsel}, sample0),   cons(
+			tuple2({1'b1, chsel}, sample1),   nil)
+		));
 	endrule
 
 	interface wires = m.wires;
 	interface Get acq;
-		method ActionValue#(Sample) get;
+		method ActionValue#(ChSample) get;
 			mimo.deq(1);
 			return mimo.first[0];
 		endmethod
