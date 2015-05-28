@@ -1,38 +1,8 @@
-## Generated SDC file "de4_pcie.sdc"
-
-## Copyright (C) 1991-2015 Altera Corporation. All rights reserved.
-## Your use of Altera Corporation's design tools, logic functions 
-## and other software and tools, and its AMPP partner logic 
-## functions, and any output files from any of the foregoing 
-## (including device programming or simulation files), and any 
-## associated documentation or information are expressly subject 
-## to the terms and conditions of the Altera Program License 
-## Subscription Agreement, the Altera Quartus II License Agreement,
-## the Altera MegaCore Function License Agreement, or other 
-## applicable license agreement, including, without limitation, 
-## that your use is for the sole purpose of programming logic 
-## devices manufactured by Altera and sold by Altera or its 
-## authorized distributors.  Please refer to the applicable 
-## agreement for further details.
-
-
-## VENDOR  "Altera"
-## PROGRAM "Quartus II"
-## VERSION "Version 15.0.0 Build 145 04/22/2015 SJ Full Version"
-
-## DATE    "Fri May  8 16:01:17 2015"
-
-##
-## DEVICE  "EP4SGX230KF40C2"
-##
-
-
 #**************************************************************
 # Time Information
 #**************************************************************
 
 set_time_format -unit ns -decimal_places 3
-
 
 
 #**************************************************************
@@ -45,15 +15,14 @@ create_clock -name {alt_cal_edge_detect_ff1_clk} -period 20.000 -waveform { 0.00
 create_clock -name {alt_cal_edge_detect_ff1q_clk} -period 20.000 -waveform { 0.000 10.000 } [get_pins -compatibility_mode {*|*pd*_det|alt_edge_det_ff1|q}]
 create_clock -name {OSC_50} -period 20.000 -waveform { 0.000 10.000 } [get_ports {OSC_50_*}]
 
-create_generated_clock -source {u0|altpll_0|sd1|pll7|inclk[0]} -divide_by 86 -multiply_by 11 -duty_cycle 50.00 -name "AD_SCLK" {u0|altpll_0|sd1|pll7|clk[0]}
-
-derive_pll_clocks -create_base_clocks
-
 
 #**************************************************************
 # Create Generated Clock
 #**************************************************************
 
+create_generated_clock -source {u0|altpll_0|sd1|pll7|inclk[0]} -divide_by 86 -multiply_by 11 -duty_cycle 50.00 -name {AD_SCLK} {u0|altpll_0|sd1|pll7|clk[0]}
+
+derive_pll_clocks -create_base_clocks
 
 
 #**************************************************************
@@ -126,38 +95,25 @@ set_multicycle_path -hold -end -from [get_keepers {*tl_cfg_ctl[*]}] 2
 
 
 #**************************************************************
-# Set Maximum Delay
-#**************************************************************
-
-
-
-#**************************************************************
-# Set Minimum Delay
-#**************************************************************
-
-
-
-#**************************************************************
-# Set Input Transition
-#**************************************************************
-
-
 # tsu/th constraints
+#**************************************************************
 
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_DOUT0}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_DOUT0}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_DOUT1}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_DOUT1}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_SSTRB0}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_SSTRB0}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_SSTRB1}]
-set_input_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_SSTRB1}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_DOUT0}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_DOUT0}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_DOUT1}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_DOUT1}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_SSTRB0}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_SSTRB0}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_SSTRB1}]
+set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_SSTRB1}]
 
 
+#**************************************************************
 # tco constraints
+#**************************************************************
 
-set_output_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -max 41.25ns [get_ports {AD_DIN}]
-set_output_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -min -8.000ns [get_ports {AD_DIN}]
-set_output_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -max 41.25ns [get_ports {AD_SCLK}]
-set_output_delay -clock "AD_SCLK" -reference_pin [get_ports AD_SCLK] -min -8.000ns [get_ports {AD_SCLK}]
+set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 41.25ns [get_ports {AD_DIN}]
+set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min -8.000ns [get_ports {AD_DIN}]
+set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 41.25ns [get_ports {AD_SCLK}]
+set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min -8.000ns [get_ports {AD_SCLK}]
 
