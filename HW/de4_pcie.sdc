@@ -14,6 +14,7 @@ create_clock -name {alt_cal_edge_detect_ff0q_clk} -period 20.000 -waveform { 0.0
 create_clock -name {alt_cal_edge_detect_ff1_clk} -period 20.000 -waveform { 0.000 10.000 } [get_pins -compatibility_mode {*|*pd*_det|alt_edge_det_ff1|clk}]
 create_clock -name {alt_cal_edge_detect_ff1q_clk} -period 20.000 -waveform { 0.000 10.000 } [get_pins -compatibility_mode {*|*pd*_det|alt_edge_det_ff1|q}]
 create_clock -name {OSC_50} -period 20.000 -waveform { 0.000 10.000 } [get_ports {OSC_50_*}]
+create_clock -period "100 MHz" -name {refclk_pci_express} [get_ports {PCIE_REFCLK_p}]
 
 
 #**************************************************************
@@ -126,3 +127,4 @@ set_output_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min -8.00
 set_false_path -to [get_ports {AD_SCLK}]
 
 set_false_path -to [get_ports {LED[*]}]
+set_false_path -from [get_ports {PCIE_PREST_n}]
