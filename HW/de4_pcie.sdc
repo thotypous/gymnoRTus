@@ -20,8 +20,6 @@ create_clock -name {OSC_50} -period 20.000 -waveform { 0.000 10.000 } [get_ports
 # Create Generated Clock
 #**************************************************************
 
-create_generated_clock -source {u0|altpll_0|sd1|pll7|inclk[0]} -divide_by 86 -multiply_by 11 -duty_cycle 50.00 -name {AD_SCLK} {u0|altpll_0|sd1|pll7|clk[0]}
-
 derive_pll_clocks -create_base_clocks
 
 
@@ -83,6 +81,15 @@ set_false_path -to [get_pins -nocase -compatibility_mode {*|alt_rst_sync_uq1|alt
 set_false_path -to [get_keepers {*tx_digitalreset_reg0c[0]}]
 set_false_path -to [get_keepers {*rx_digitalreset_reg0c[0]}]
 
+# Bluespec SyncFIFO synchronizers
+set_false_path -from [get_keepers {*|SyncFIFO:*|dGDeqPtr*}] -to [get_keepers {*|SyncFIFO:*|sSyncReg*}]
+set_false_path -from [get_keepers {*|SyncFIFO:*|sGEnqPtr*}] -to [get_keepers {*|SyncFIFO:*|dSyncReg*}]
+set_false_path -from [get_keepers {*|SyncFIFO:*|fifoMem*}] -to [get_keepers {*|SyncFIFO:*|dDoutReg*}]
+
+# Bluespec SyncResetA synchronizers
+set_false_path -to [get_keepers {*|SyncResetA:*|reset_hold*}]
+set_false_path -from [get_keepers {*|SyncResetA:*|reset_hold*}]
+
 
 #**************************************************************
 # Set Multicycle Path
@@ -98,22 +105,24 @@ set_multicycle_path -hold -end -from [get_keepers {*tl_cfg_ctl[*]}] 2
 # tsu/th constraints
 #**************************************************************
 
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_DOUT0}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_DOUT0}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_DOUT1}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_DOUT1}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_SSTRB0}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_SSTRB0}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 86.25ns [get_ports {AD_SSTRB1}]
-set_input_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min 8.000ns [get_ports {AD_SSTRB1}]
+set AD_SCLK [get_clocks {u0|altpll_0|sd1|pll7|clk[0]}]
+
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -max 86.25ns [get_ports {AD_DOUT0}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min 8.000ns [get_ports {AD_DOUT0}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -max 86.25ns [get_ports {AD_DOUT1}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min 8.000ns [get_ports {AD_DOUT1}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -max 86.25ns [get_ports {AD_SSTRB0}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min 8.000ns [get_ports {AD_SSTRB0}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -max 86.25ns [get_ports {AD_SSTRB1}]
+set_input_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min 8.000ns [get_ports {AD_SSTRB1}]
 
 
 #**************************************************************
 # tco constraints
 #**************************************************************
 
-set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 41.25ns [get_ports {AD_DIN}]
-set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min -8.000ns [get_ports {AD_DIN}]
-set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -max 41.25ns [get_ports {AD_SCLK}]
-set_output_delay -clock {AD_SCLK} -reference_pin [get_ports AD_SCLK] -min -8.000ns [get_ports {AD_SCLK}]
+set_output_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -max 41.25ns [get_ports {AD_DIN}]
+set_output_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min -8.000ns [get_ports {AD_DIN}]
+set_false_path -to [get_ports {AD_SCLK}]
 
+set_false_path -to [get_ports {LED[*]}]

@@ -123,7 +123,7 @@ module mkDualADInternal(DualADInternal);
 endmodule
 
 module mkDualAD(Clock sClk, DualAD ifc);
-	Reset sRst <- mkAsyncResetFromCR(1, sClk);
+	Reset sRst <- mkAsyncResetFromCR(2, sClk);
 	let m <- mkDualADInternal(clocked_by sClk, reset_by sRst);
 
 	SyncFIFOIfc#(Tuple2#(Sample, Sample)) sync <- mkSyncFIFOToCC(2, sClk, sRst);
