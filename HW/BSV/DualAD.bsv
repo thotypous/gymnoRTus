@@ -5,8 +5,6 @@ import Connectable::*;
 import Clocks::*;
 import Reserved::*;
 import Vector::*;
-import DefaultValue::*;
-
 
 export DualAD(..);
 export DualADWires(..);
@@ -41,9 +39,8 @@ interface DualAD;
 	interface PipeOut#(ChSample) acq;
 endinterface
 
-typedef Tuple2#(ChSel, Vector#(2, Sample)) InternalTuple;
-
 // Internal interface (before clock domain conversion)
+typedef Tuple2#(ChSel, Vector#(2, Sample)) InternalTuple;
 interface DualADInternal;
 	interface DualADWires wires;
 	interface Get#(InternalTuple) acq;
