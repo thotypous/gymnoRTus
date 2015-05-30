@@ -1,11 +1,12 @@
+import PAClib::*;
+export PAClib::*;
 import GetPut::*;
-export GetPut::*;
+import Connectable::*;
 import Clocks::*;
 import Reserved::*;
-import Connectable::*;
 import Vector::*;
 import DefaultValue::*;
-import MIMO::*;
+
 
 export DualAD(..);
 export DualADWires(..);
@@ -34,13 +35,15 @@ endinterface
 
 typedef Tuple2#(ChNum, Sample) ChSample;
 
+// External interface
 interface DualAD;
 	interface DualADWires wires;
-	interface Get#(ChSample) acq;
+	interface PipeOut#(ChSample) acq;
 endinterface
 
-typedef Tuple3#(ChSel, Sample, Sample) InternalTuple;
+typedef Tuple2#(ChSel, Vector#(2, Sample)) InternalTuple;
 
+// Internal interface (before clock domain conversion)
 interface DualADInternal;
 	interface DualADWires wires;
 	interface Get#(InternalTuple) acq;
@@ -145,34 +148,40 @@ module mkDualADInternal(DualADInternal);
 		method ActionValue#(InternalTuple) get if (doutBit == 12);
 			// At the end of the conversion, ch will already be incremented.
 			// See MAX1280 datasheet p. 16, Figure 8
-			return tuple3(ch - 1, shiftReg0, shiftReg1);
+			Sample arr[2] = { shiftReg0, shiftReg1 };
+			return tuple2(ch - 1, arrayToVector(arr));
 		endmethod
 	endinterface
 endmodule
 
 module mkDualAD(Clock sClk, DualAD ifc);
 	Reset sRst <- mkAsyncResetFromCR(2, sClk);
-	let m <- mkDualADInternal(clocked_by sClk, reset_by sRst);
+	(*hide*) let m <- mkDualADInternal(clocked_by sClk, reset_by sRst);
 
 	SyncFIFOIfc#(InternalTuple) sync <- mkSyncFIFOToCC(2, sClk, sRst);
-	MIMO#(2, 1, 2, ChSample) mimo <- mkMIMO(defaultValue);
-
+	// Be warned that samples will be discarded if no space is left in the FIFO
 	mkConnection(m.acq, toPut(sync));
 
-	rule mimoPut;
-		sync.deq;
-		match {.chsel, .sample0, .sample1} = sync.first;
-		mimo.enq(2,                           cons(
-			tuple2({1'b0, chsel}, sample0),   cons(
-			tuple2({1'b1, chsel}, sample1),   nil)
-		));
-	endrule
+	let fromSync <- mkSource_from_fav(toGet(sync).get);
+
+	function makeFunnelInput(tuple);
+		match {.chsel, .samples} = tuple;
+		function copyChSel(sample) = tuple2(chsel, sample);
+		return Vector::map(copyChSel, samples);
+	endfunction
+
+	let funnelInput <- mkFn_to_Pipe(makeFunnelInput, fromSync);
+
+	PipeOut#( Vector#(1, Tuple2#(Tuple2#(ChSel, Sample), UInt#(1)) ) )
+	    	funnelOutput <- mkFunnel_Indexed(funnelInput);
+
+	function makeToAcq(vec);
+		match {{.chsel, .sample}, .index} = vec[0];
+		return tuple2({pack(index), chsel}, sample);
+	endfunction
+
+	let toAcq <- mkFn_to_Pipe(makeToAcq, funnelOutput);
 
 	interface wires = m.wires;
-	interface Get acq;
-		method ActionValue#(ChSample) get;
-			mimo.deq(1);
-			return mimo.first[0];
-		endmethod
-	endinterface
+	interface acq = toAcq;
 endmodule

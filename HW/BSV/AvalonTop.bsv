@@ -42,7 +42,7 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	endrule
 
 	rule getSample;
-		let chsample <- adc.acq.get;
+		let chsample <- toGet(adc.acq).get;
 		match {.*, .sample} = chsample;
 		test <= sample;
 	endrule
