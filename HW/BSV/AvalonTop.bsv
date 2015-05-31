@@ -2,6 +2,7 @@ import AvalonSlave::*;
 import AvalonMaster::*;
 import InterruptSender::*;
 import DualAD::*;
+import PipeUtils::*;
 
 typedef 2  PciBarAddrSize;
 typedef 32 PciBarDataSize;
