@@ -170,7 +170,7 @@ module mkDualAD(Clock sClk, DualAD ifc);
 	let funnelInput <- mkFn_to_Pipe(makeFunnelInput, fromSync);
 
 	PipeOut#( Vector#(1, Tuple2#(Tuple2#(ChSel, Sample), UInt#(1)) ) )
-	    	funnelOutput <- mkFunnel_Indexed(funnelInput);
+			funnelOutput <- mkFunnel_Indexed(funnelInput);
 
 	function makeToAcq(vec);
 		match {{.chsel, .sample}, .index} = vec[0];
