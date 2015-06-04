@@ -3,6 +3,7 @@ import AvalonMaster::*;
 import InterruptSender::*;
 import DualAD::*;
 import PipeUtils::*;
+import Vector::*;
 
 typedef 2  PciBarAddrSize;
 typedef 32 PciBarDataSize;
@@ -28,30 +29,61 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
 	DualAD adc <- mkDualAD(adsclk);
-	Reg#(Sample) test <- mkRegU;
 
-	Reg#(Bit#(PciBarDataSize)) ireg <- mkReg(0);
-	Reg#(Bool) irqFlag <- mkReg(False);
+	Array#(Reg#(Bit#(PciBarDataSize))) epoch <- mkCRegU(2);
+	Reg#(Maybe#(Bit#(PciBarDataSize))) dmaAddress <- mkReg(tagged Invalid);
+	Array#(Reg#(Bit#(11))) dmaPtr <- mkCRegU(2);
+	Array#(Reg#(Bool)) irqFlag <- mkCReg(2, False);
+
+	function filterCh(ch, chsample) = tpl_1(chsample) == ch;
+	PipeOut#(ChSample) onlyCh0Pipe <- mkPipeFilter(filterCh(0), adc.acq);
+	function vecSingleElem(chsample) = Vector::cons(tpl_2(chsample), Vector::nil);
+	PipeOut#(Vector#(1,Sample)) vecSingleElemPipe <- mkFn_to_Pipe(vecSingleElem, onlyCh0Pipe);
+	PipeOut#(Vector#(5,Sample)) vecFiveElemPipe <- mkUnfunnel(False, vecSingleElemPipe);
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;
 		(*split*)
 		case (cmd) matches
+			tagged AvalonRequest{addr: 0, data: .x, command: Write}:
+				action
+					dmaAddress <= tagged Valid x;
+					dmaPtr[1] <= 0;
+					epoch[1] <= 0;
+				endaction
+			tagged AvalonRequest{addr: 0, data: .*, command: Read}:
+				action
+					pcibar.busClient.response.put(epoch[0]);
+					irqFlag[0] <= False;
+				endaction
 			tagged AvalonRequest{addr: .*, data: .*, command: Read}:
-				pcibar.busClient.response.put(32'hBADC0FFE);
+				action
+					pcibar.busClient.response.put(32'hBADC0FFE);
+				endaction
 		endcase
 	endrule
 
-	rule getSample;
-		let chsample <- toGet(adc.acq).get;
-		match {.*, .sample} = chsample;
-		test <= sample;
+	rule transferSamples(dmaAddress matches tagged Valid .dmaAddr);
+		let fiveElem <- toGet(vecFiveElemPipe).get;
+		Bit#(PciDmaDataSize) dataWord = extend(pack(fiveElem));
+		pcidma.busServer.request.put(AvalonRequest{
+			command: Write,
+			addr: dmaAddr + extend(dmaPtr[0]),
+			data: dataWord
+		});
+		dmaPtr[0] <= dmaPtr[0] + 1;
 	endrule
 
-	interface irqWires = irqSender(irqFlag);
+	let dmaPtrDmaRange = dmaPtr[0] == 0 || dmaPtr[0] == 1024;
+
+	rule dispatchIrq(dmaAddress matches tagged Valid .* &&& dmaPtrDmaRange);
+		irqFlag[1] <= True;
+	endrule
+
+	interface irqWires = irqSender(irqFlag[0]);
 	interface barWires = pcibar.slaveWires;
 	interface dmaWires = pcidma.masterWires;
 	interface adWires  = adc.wires;
-	method Bit#(8) getLed = truncate(test);
+	method Bit#(8) getLed = truncate(epoch[0]);
 
 endmodule
