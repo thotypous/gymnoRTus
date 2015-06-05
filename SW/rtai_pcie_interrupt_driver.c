@@ -23,6 +23,7 @@
 // Defines for the EchoModule Interface
 #define AVALONTOP_WADDR 0x00
 #define AVALONTOP_RFLAG 0x00
+#define AVALONTOP_WSTOP 0x04
 
 // Periodic task period in ns
 #define PERIOD 200000
@@ -169,6 +170,8 @@ static int pcie_interrupt_init(void) {
 }
 
 static void pcie_interrupt_exit(void) {
+    iowrite32(0, avalontop_base + AVALONTOP_WSTOP);
+
     rtf_destroy(FIFO_DATA);
 
     pci_unregister_driver(&pci_driver);

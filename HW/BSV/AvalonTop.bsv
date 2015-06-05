@@ -56,6 +56,10 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 					pcibar.busClient.response.put(epoch[0]);
 					irqFlag[0] <= False;
 				endaction
+			tagged AvalonRequest{addr: 1, data: .*, command: Write}:
+				action
+					dmaAddress <= tagged Invalid;
+				endaction
 			tagged AvalonRequest{addr: .*, data: .*, command: Read}:
 				action
 					pcibar.busClient.response.put(32'hBADC0FFE);
@@ -84,6 +88,6 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	interface barWires = pcibar.slaveWires;
 	interface dmaWires = pcidma.masterWires;
 	interface adWires  = adc.wires;
-	method Bit#(8) getLed = truncate(epoch[0]);
+	method Bit#(8) getLed = ~extend(isValid(dmaAddress) ? 1'b1 : 1'b0);
 
 endmodule
