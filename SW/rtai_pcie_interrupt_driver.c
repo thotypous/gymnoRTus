@@ -35,7 +35,7 @@ static void *avalontop_base;
 
 static uint8_t n_devices = 0;
 
-static uint32_t epoch = 1;
+static uint32_t epoch = 2;
 static uint64_t *dma_ptr = NULL;
 static dma_addr_t dma_handle;
 
@@ -45,7 +45,7 @@ static int irq_handler(unsigned irq, void *cookie_) {
     const int irq_is_ours = (flag == epoch);
 
     if (likely(irq_is_ours)) {
-        int i = 0, j = (epoch % 2 == 1) ? 0 : 1024;
+        int i = 0, j = (flag % 2 == 0) ? 0 : 1024;
 
         for (; i < 1024; i++, j++)
             rtf_put(FIFO_DATA, (void*)&dma_ptr[i], sizeof(dma_ptr[0]));

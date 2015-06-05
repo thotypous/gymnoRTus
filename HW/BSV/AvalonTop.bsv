@@ -67,6 +67,10 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		endcase
 	endrule
 
+	rule discardSamples(dmaAddress matches tagged Invalid);
+		vecFiveElemPipe.deq;
+	endrule
+
 	rule transferSamples(dmaAddress matches tagged Valid .dmaAddr);
 		let fiveElem <- toGet(vecFiveElemPipe).get;
 		Bit#(PciDmaDataSize) dataWord = extend(pack(fiveElem));
@@ -75,13 +79,13 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			addr: dmaAddr + extend(dmaPtr[0]),
 			data: dataWord
 		});
+
+		if(dmaPtr[0] == 0 || dmaPtr[0] == 1024) begin
+			irqFlag[1] <= True;
+			epoch[0] <= epoch[0] + 1;
+		end
+
 		dmaPtr[0] <= dmaPtr[0] + 1;
-	endrule
-
-	let dmaPtrDmaRange = dmaPtr[0] == 0 || dmaPtr[0] == 1024;
-
-	rule dispatchIrq(dmaAddress matches tagged Valid .* &&& dmaPtrDmaRange);
-		irqFlag[1] <= True;
 	endrule
 
 	interface irqWires = irqSender(irqFlag[0]);
