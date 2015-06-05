@@ -48,7 +48,7 @@ static int irq_handler(unsigned irq, void *cookie_) {
         int i = 0, j = (flag % 2 == 0) ? 0 : 1024;
 
         for (; i < 1024; i++, j++)
-            rtf_put(FIFO_DATA, (void*)&dma_ptr[i], sizeof(dma_ptr[0]));
+            rtf_put(FIFO_DATA, (void*)&dma_ptr[j], sizeof(dma_ptr[0]));
 
         ++epoch;
     }
