@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 import itertools
 
 def getSamples(buf):
-    return np.array([(long(x)>>i)&0xfff
+    return np.array([(long(x)>>(12*i))&0xfff
                      for x in np.frombuffer(buf, dtype=np.uint64)
                      for i in xrange(5)], dtype=np.float)
 
