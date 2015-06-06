@@ -25,9 +25,6 @@
 #define AVALONTOP_RFLAG 0x00
 #define AVALONTOP_WSTOP 0x04
 
-// Periodic task period in ns
-#define PERIOD 200000
-
 #define DMA_BITS 32
 #define DMA_SIZE (2048*sizeof(uint64_t))
 
