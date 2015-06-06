@@ -77,7 +77,7 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 		pcidma.busServer.request.put(AvalonRequest{
 			command: Write,
-			addr: dmaAddr + extend(dmaPtr[0]),
+			addr: dmaAddr + (extend(dmaPtr[0]) << 3),
 			data: dataWord
 		});
 
