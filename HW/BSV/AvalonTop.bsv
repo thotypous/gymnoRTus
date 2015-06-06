@@ -72,8 +72,9 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	endrule
 
 	rule transferSamples(dmaAddress matches tagged Valid .dmaAddr);
-		let fiveElem <- toGet(vecFiveElemPipe).get;
-		Bit#(PciDmaDataSize) dataWord = extend(pack(fiveElem));
+		Bit#(PciDmaDataSize) dataWord = extend(pack(vecFiveElemPipe.first));
+		vecFiveElemPipe.deq;
+
 		pcidma.busServer.request.put(AvalonRequest{
 			command: Write,
 			addr: dmaAddr + extend(dmaPtr[0]),

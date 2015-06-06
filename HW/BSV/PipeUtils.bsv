@@ -1,32 +1,19 @@
 import PAClib::*;
 export PAClib::*;
+import FIFOF::*;
 
-export mkDiscardImplicitCond;
 export mkPipeFilter;
 
-module mkDiscardImplicitCond#(b returnIfReady, b defaultVal) (ReadOnly#(b))
-		provisos (Bits#(b, sb));
-	Wire#(b) out <- mkDWire(defaultVal);
-	rule updateOut;
-		out <= returnIfReady;
-	endrule
-	method b _read = out;
-endmodule
+module mkPipeFilter#(function Bool cond(a x), PipeOut#(a) in) (PipeOut#(a))
+		provisos (Bits#(a, sa));
 
-module mkPipeFilter#(function Bool cond(a x), PipeOut#(a) in) (PipeOut#(a));
-	ReadOnly#(Bool) condSatisfied <- mkDiscardImplicitCond(cond(in.first), False);
+	FIFOF#(a) out <- mkFIFOF;
 
-	rule discardElement (!condSatisfied);
+	rule makeDecision;
 		in.deq;
+		if (cond(in.first))
+			out.enq(in.first);
 	endrule
 
-	method a first if (condSatisfied);
-		return in.first;
-	endmethod
-	method Action deq if (condSatisfied);
-		in.deq;
-	endmethod
-	method Bool notEmpty;
-		return in.notEmpty && condSatisfied;
-	endmethod
+	return f_FIFOF_to_PipeOut(out);
 endmodule
