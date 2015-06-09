@@ -3,12 +3,8 @@ import AvalonMaster::*;
 import InterruptSender::*;
 import DualAD::*;
 import PipeUtils::*;
+import SysConfig::*;
 import Vector::*;
-
-typedef 2  PciBarAddrSize;
-typedef 32 PciBarDataSize;
-typedef 32 PciDmaAddrSize;
-typedef 64 PciDmaDataSize;
 
 interface AvalonTop;
 	(* prefix="" *)
@@ -24,22 +20,25 @@ interface AvalonTop;
 endinterface
 
 (* synthesize, clock_prefix="clk", reset_prefix="reset_n" *)
-module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
+module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
 	DualAD adc <- mkDualAD(adsclk);
 
-	Array#(Reg#(Bit#(PciBarDataSize))) epoch <- mkCRegU(2);
-	Reg#(Maybe#(Bit#(PciBarDataSize))) dmaAddress <- mkReg(tagged Invalid);
+	Array#(Reg#(PciBarData)) epoch <- mkCRegU(2);
+	Reg#(Maybe#(PciBarData)) dmaAddress <- mkReg(tagged Invalid);
 	Array#(Reg#(Bit#(11))) dmaPtr <- mkCRegU(2);
 	Array#(Reg#(Bool)) irqFlag <- mkCReg(2, False);
 
 	function filterCh(ch, chsample) = tpl_1(chsample) == ch;
-	PipeOut#(ChSample) onlyCh0Pipe <- mkPipeFilter(filterCh(0), adc.acq);
-	function vecSingleElem(chsample) = Vector::cons(tpl_2(chsample), Vector::nil);
-	PipeOut#(Vector#(1,Sample)) vecSingleElemPipe <- mkFn_to_Pipe(vecSingleElem, onlyCh0Pipe);
-	PipeOut#(Vector#(5,Sample)) vecFiveElemPipe <- mkUnfunnel(False, vecSingleElemPipe);
+	PipeOut#(Vector#(5,Sample)) vecFiveElemPipe <- mkCompose(
+			mkCompose(
+					mkPipeFilter(filterCh(0)),
+					mkFn_to_Pipe(compose(vecBind, tpl_2))
+			),
+			mkUnfunnel(False),
+			adc.acq);
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;
@@ -72,7 +71,7 @@ module mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	endrule
 
 	rule transferSamples(dmaAddress matches tagged Valid .dmaAddr);
-		Bit#(PciDmaDataSize) dataWord = extend(pack(vecFiveElemPipe.first));
+		PciDmaData dataWord = extend(pack(vecFiveElemPipe.first));
 		vecFiveElemPipe.deq;
 
 		pcidma.busServer.request.put(AvalonRequest{

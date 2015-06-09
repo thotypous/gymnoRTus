@@ -10,6 +10,7 @@ export DualAD(..);
 export DualADWires(..);
 export Sample(..);
 export ChNum(..);
+export ChSel(..);
 export ChSample(..);
 export mkDualAD;
 
@@ -151,7 +152,7 @@ module mkDualADInternal(DualADInternal);
 	endinterface
 endmodule
 
-module mkDualAD(Clock sClk, DualAD ifc);
+module [Module] mkDualAD(Clock sClk, DualAD ifc);
 	Reset sRst <- mkAsyncResetFromCR(2, sClk);
 	(*hide*) let m <- mkDualADInternal(clocked_by sClk, reset_by sRst);
 
@@ -167,10 +168,11 @@ module mkDualAD(Clock sClk, DualAD ifc);
 		return Vector::map(copyChSel, samples);
 	endfunction
 
-	let funnelInput <- mkFn_to_Pipe(makeFunnelInput, fromSync);
-
 	PipeOut#( Vector#(1, Tuple2#(Tuple2#(ChSel, Sample), UInt#(1)) ) )
-			funnelOutput <- mkFunnel_Indexed(funnelInput);
+			funnelOutput <- mkCompose(
+					mkFn_to_Pipe(makeFunnelInput),
+					mkFunnel_Indexed,
+					fromSync);
 
 	function makeToAcq(vec);
 		match {{.chsel, .sample}, .index} = vec[0];
