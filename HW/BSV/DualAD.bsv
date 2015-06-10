@@ -5,6 +5,7 @@ import Connectable::*;
 import Clocks::*;
 import Reserved::*;
 import Vector::*;
+import PipeUtils::*;
 
 export DualAD(..);
 export DualADWires(..);
@@ -160,8 +161,6 @@ module [Module] mkDualAD(Clock sClk, DualAD ifc);
 	// Be warned that samples will be discarded if no space is left in the FIFO
 	mkConnection(m.acq, toPut(sync));
 
-	let fromSync <- mkSource_from_fav(toGet(sync).get);
-
 	function makeFunnelInput(tuple);
 		match {.chsel, .samples} = tuple;
 		function copyChSel(sample) = tuple2(chsel, sample);
@@ -172,7 +171,7 @@ module [Module] mkDualAD(Clock sClk, DualAD ifc);
 			funnelOutput <- mkCompose(
 					mkFn_to_Pipe(makeFunnelInput),
 					mkFunnel_Indexed,
-					fromSync);
+					f_SyncFIFOIfc_to_PipeOut(sync));
 
 	function makeToAcq(vec);
 		match {{.chsel, .sample}, .index} = vec[0];
