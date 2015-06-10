@@ -9,10 +9,6 @@ import PipeUtils::*;
 import DualAD::*;
 import SysConfig::*;
 
-typedef 4 SamplesPerWord;
-typedef TDiv#(PciDmaDataSize, SamplesPerWord) DmaSampleSize;
-typedef Bit#(DmaSampleSize) DmaSample;
-
 interface MockAD;
 	method Bool isBusy;
 	method Action start(PciDmaAddr addr);
@@ -23,7 +19,7 @@ endinterface
 module [Module] mkMockAD(MockAD);
 	FIFOF#(PciDmaAddr) dmaReadReq <- mkFIFOF;
 	FIFOF#(PciDmaData) dmaResp <- mkFIFOF;
-	FIFOF#(Vector#(SamplesPerWord, ChSample)) dmaOut <- mkFIFOF;
+	FIFOF#(Vector#(SamplesPerDmaWord, ChSample)) dmaOut <- mkFIFOF;
 
 	PipeOut#(ChSample) acqOut <- mkCompose(
 			mkFunnel,
@@ -58,7 +54,7 @@ module [Module] mkMockAD(MockAD);
 	endfunction
 
 	function ChNum chSkipWord(ChNum ch);
-		for(Integer i = 0; i < valueOf(SamplesPerWord); i = i + 1)
+		for(Integer i = 0; i < valueOf(SamplesPerDmaWord); i = i + 1)
 			ch = incCh(ch);
 		return ch;
 	endfunction
@@ -76,11 +72,11 @@ module [Module] mkMockAD(MockAD);
 	rule receiveDma;
 		ChNum ch <- toGet(firstChPending).get;
 
-		Vector#(SamplesPerWord, DmaSample) samples = unpack(dmaResp.first);
+		Vector#(SamplesPerDmaWord, DmaSample) samples = unpack(dmaResp.first);
 		dmaResp.deq;
 
-		Vector#(SamplesPerWord, ChSample) chSamples;
-		for(Integer i = 0; i < valueOf(SamplesPerWord); i = i + 1) begin
+		Vector#(SamplesPerDmaWord, ChSample) chSamples;
+		for(Integer i = 0; i < valueOf(SamplesPerDmaWord); i = i + 1) begin
 			chSamples[i] = tuple2(ch, truncate(samples[i]));
 			ch = incCh(ch);
 		end

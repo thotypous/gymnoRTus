@@ -9,3 +9,7 @@ typedef Bit#(PciDmaAddrSize) PciDmaAddr;
 typedef Bit#(PciDmaDataSize) PciDmaData;
 
 typedef 8192 MockADBufSize;  // number of 64-bit words
+
+typedef 4 SamplesPerDmaWord;
+typedef TDiv#(PciDmaDataSize, SamplesPerDmaWord) DmaSampleSize;
+typedef Bit#(DmaSampleSize) DmaSample;
