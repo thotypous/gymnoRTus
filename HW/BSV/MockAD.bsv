@@ -31,18 +31,7 @@ module [Module] mkMockAD(MockAD);
 	Reg#(ChNum) nextCh <- mkRegU;
 	FIFOF#(ChNum) firstChPending <- mkFIFOF;
 
-	Array#(Reg#(Bool)) busyReg <- mkCReg(2, False);
-	let busy = busyReg[0];
-	let nextBusy = remaining != 0
-			|| dmaReadReq.notEmpty
-			|| firstChPending.notEmpty
-			|| dmaResp.notEmpty
-			|| dmaOut.notEmpty
-			|| acqOut.notEmpty;
-
-	rule updateBusy; // buffers the busy signal
-		busyReg[0] <= nextBusy;
-	endrule
+	let busy = remaining != 0;
 
 	function ChNum incCh(ChNum ch);
 		Bit#(1) msb = truncateLSB(ch);
@@ -85,7 +74,6 @@ module [Module] mkMockAD(MockAD);
 	endrule
 
 	method Action start(PciDmaAddr addr) if (!busy);
-		busyReg[1] <= True;
 		nextAddr <= addr;
 		nextCh <= 0;
 		remaining <= fromInteger(valueOf(MockADBufSize));

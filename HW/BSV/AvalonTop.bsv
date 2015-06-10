@@ -2,6 +2,7 @@ import AvalonSlave::*;
 import AvalonMaster::*;
 import InterruptSender::*;
 import DualAD::*;
+import MockAD::*;
 import PipeUtils::*;
 import SysConfig::*;
 import Vector::*;
@@ -24,7 +25,12 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
+
 	DualAD adc <- mkDualAD(adsclk);
+	MockAD adcMock <- mkMockAD;
+
+	Reg#(Bool) adcMocked <- mkReg(False);
+	PipeOut#(ChSample) adcMux = adcMocked ? adcMock.acq : adc.acq;
 
 	Array#(Reg#(PciBarData)) epoch <- mkCRegU(2);
 	Reg#(Maybe#(PciBarData)) dmaAddress <- mkReg(tagged Invalid);
@@ -38,31 +44,52 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 					mkFn_to_Pipe(compose(vecBind, tpl_2))
 			),
 			mkUnfunnel(False),
-			adc.acq);
+			adcMux);
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;
 		(*split*)
-		case (cmd) matches
-			tagged AvalonRequest{addr: 0, data: .x, command: Write}:
+		case (cmd.command)
+		Write:
+			(*split*)
+			case (cmd.addr)
+			0:
 				action
-					dmaAddress <= tagged Valid x;
+					dmaAddress <= tagged Valid cmd.data;
 					dmaPtr[1] <= 0;
 					epoch[1] <= 0;
 				endaction
-			tagged AvalonRequest{addr: 0, data: .*, command: Read}:
+			1:
+				action
+					dmaAddress <= tagged Invalid;
+				endaction
+			2:
+				action
+					adcMocked <= True;
+					adcMock.start(cmd.data);
+				endaction
+			3:
+				action
+					adcMocked <= False;
+				endaction
+			endcase
+		Read:
+			(*split*)
+			case (cmd.addr)
+			0:
 				action
 					pcibar.busClient.response.put(epoch[0]);
 					irqFlag[0] <= False;
 				endaction
-			tagged AvalonRequest{addr: 1, data: .*, command: Write}:
+			2:
 				action
-					dmaAddress <= tagged Invalid;
+					pcibar.busClient.response.put(adcMock.isBusy ? 1 : 0);
 				endaction
-			tagged AvalonRequest{addr: .*, data: .*, command: Read}:
+			default:
 				action
 					pcibar.busClient.response.put(32'hBADC0FFE);
 				endaction
+			endcase
 		endcase
 	endrule
 
