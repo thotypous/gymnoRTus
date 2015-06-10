@@ -84,11 +84,11 @@ module [Module] mkMockAD(MockAD);
 	interface acq = acqOut;
 	interface Client dmaCli;
 		interface Get request;
-			method ActionValue#(AvalonRequest#(PciDmaAddrSize,PciDmaDataSize)) get if (busy);
+			method ActionValue#(AvalonRequest#(PciDmaAddrSize,PciDmaDataSize)) get;
 				dmaReadReq.deq;
 				return AvalonRequest{addr: dmaReadReq.first, data: ?, command: Read};
 			endmethod
 		endinterface
-		interface Put response = when(busy, toPut(dmaResp));
+		interface Put response = toPut(dmaResp);
 	endinterface
 endmodule
