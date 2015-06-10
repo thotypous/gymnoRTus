@@ -1,6 +1,21 @@
 import PAClib::*;
 import FIFOF::*;
 import Vector::*;
+import Clocks::*;
+
+function PipeOut#(a) f_SyncFIFOIfc_to_PipeOut(SyncFIFOIfc#(a) sync);
+	return (interface PipeOut;
+			method a first ();
+				return sync.first;
+			endmethod
+			method Action deq ();
+				sync.deq;
+			endmethod
+			method Bool notEmpty ();
+				return sync.notEmpty ();
+			endmethod
+		endinterface);
+endfunction
 
 module mkPipeFilter#(function Bool cond(a x), PipeOut#(a) in) (PipeOut#(a))
 		provisos (Bits#(a, sa));
