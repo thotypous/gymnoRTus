@@ -26,6 +26,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
+	InterruptSender irqSender <- mkInterruptSender;
 
 	DualAD adc <- mkDualAD(adsclk);
 	MockAD adcMock <- mkMockAD;
@@ -34,10 +35,8 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	Reg#(Bool) adcMocked <- mkReg(False);
 	PipeOut#(ChSample) adcMux = adcMocked ? adcMock.acq : adc.acq;
 
-	Array#(Reg#(PciBarData)) epoch <- mkCRegU(2);
 	Reg#(Maybe#(PciBarData)) dmaAddress <- mkReg(tagged Invalid);
 	Array#(Reg#(Bit#(11))) dmaPtr <- mkCRegU(2);
-	Array#(Reg#(Bool)) irqFlag <- mkCReg(2, False);
 
 	function filterCh(ch, chsample) = tpl_1(chsample) == ch;
 	PipeOut#(Vector#(5,Sample)) vecFiveElemPipe <- mkCompose(
@@ -57,9 +56,9 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			case (cmd.addr)
 			0:
 				action
+					irqSender.resetCounter;
 					dmaAddress <= tagged Valid cmd.data;
 					dmaPtr[1] <= 0;
-					epoch[1] <= 0;
 				endaction
 			1:
 				action
@@ -80,8 +79,8 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			case (cmd.addr)
 			0:
 				action
-					pcibar.busClient.response.put(epoch[0]);
-					irqFlag[0] <= False;
+					let counter <- irqSender.ack;
+					pcibar.busClient.response.put(counter);
 				endaction
 			2:
 				action
@@ -114,10 +113,8 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			data: dataWord
 		});
 
-		if(dmaPtr[0] == 0 || dmaPtr[0] == 1024) begin
-			irqFlag[1] <= True;
-			epoch[0] <= epoch[0] + 1;
-		end
+		if(dmaPtr[0] == 0 || dmaPtr[0] == 1024)
+			irqSender.send;
 
 		dmaPtr[0] <= dmaPtr[0] + 1;
 	endrule
@@ -133,7 +130,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	mkConnection(pcidma.busServer.response, adcMock.dmaCli.response);
 
-	interface irqWires = irqSender(irqFlag[0]);
+	interface irqWires = irqSender.wires;
 	interface barWires = pcibar.slaveWires;
 	interface dmaWires = pcidma.masterWires;
 	interface adWires  = adc.wires;
