@@ -6,6 +6,7 @@ import MockAD::*;
 import PipeUtils::*;
 import SysConfig::*;
 import Vector::*;
+import Connectable::*;
 
 interface AvalonTop;
 	(* prefix="" *)
@@ -28,6 +29,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	DualAD adc <- mkDualAD(adsclk);
 	MockAD adcMock <- mkMockAD;
+	Reg#(Bool) arbMockPrio <- mkRegU;
 
 	Reg#(Bool) adcMocked <- mkReg(False);
 	PipeOut#(ChSample) adcMux = adcMocked ? adcMock.acq : adc.acq;
@@ -93,11 +95,16 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		endcase
 	endrule
 
-	rule discardSamples(dmaAddress matches tagged Invalid);
+	rule discardSamples (dmaAddress matches tagged Invalid);
 		vecFiveElemPipe.deq;
 	endrule
 
-	rule transferSamples(dmaAddress matches tagged Valid .dmaAddr);
+	rule arbMockRoundRobin;
+		arbMockPrio <= !arbMockPrio;
+	endrule
+	let mockDmaTurn = adcMocked && arbMockPrio;
+
+	rule transferSamples (!mockDmaTurn &&& dmaAddress matches tagged Valid .dmaAddr);
 		PciDmaData dataWord = extend(pack(vecFiveElemPipe.first));
 		vecFiveElemPipe.deq;
 
@@ -114,6 +121,17 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 		dmaPtr[0] <= dmaPtr[0] + 1;
 	endrule
+
+	rule doMockDma (mockDmaTurn);
+		let addr <- adcMock.dmaCli.request.get;
+		pcidma.busServer.request.put(AvalonRequest{
+			command: Read,
+			addr: addr,
+			data: ?
+		});
+	endrule
+
+	mkConnection(pcidma.busServer.response, adcMock.dmaCli.response);
 
 	interface irqWires = irqSender(irqFlag[0]);
 	interface barWires = pcibar.slaveWires;
