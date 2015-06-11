@@ -3,7 +3,7 @@ import AvalonCommon::*;
 import ClientServer::*;
 import GetPut::*;
 import FIFOF::*;
-import MIMO::*;
+import BUtils::*;
 import Vector::*;
 import PipeUtils::*;
 import DualAD::*;
@@ -12,7 +12,7 @@ import SysConfig::*;
 interface MockAD;
 	method Bool isBusy;
 	method Action start(PciDmaAddr addr);
-	interface Client#(AvalonRequest#(PciDmaAddrSize,PciDmaDataSize), PciDmaData) dmaCli;
+	interface Client#(PciDmaAddr, PciDmaData) dmaCli;
 	interface PipeOut#(ChSample) acq;
 endinterface
 
@@ -82,13 +82,5 @@ module [Module] mkMockAD(MockAD);
 	method Bool isBusy = busy;
 
 	interface acq = acqOut;
-	interface Client dmaCli;
-		interface Get request;
-			method ActionValue#(AvalonRequest#(PciDmaAddrSize,PciDmaDataSize)) get;
-				dmaReadReq.deq;
-				return AvalonRequest{addr: dmaReadReq.first, data: ?, command: Read};
-			endmethod
-		endinterface
-		interface Put response = toPut(dmaResp);
-	endinterface
+	interface Client dmaCli = toGPClient(dmaReadReq, dmaResp);
 endmodule

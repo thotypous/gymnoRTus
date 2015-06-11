@@ -89,8 +89,8 @@ module mkDualADInternal(DualADInternal);
 
 	// I/O related
 	Reg#(Bit#(1)) din <- mkReg(0);
-	Wire#(Bit#(1)) dout0 <- mkWire;
-	Wire#(Bit#(1)) dout1 <- mkWire;
+	Wire#(Bit#(1)) dout0 <- mkBypassWire;
+	Wire#(Bit#(1)) dout1 <- mkBypassWire;
 	Reg#(Sample) shiftReg0 <- mkRegU;
 	Reg#(Sample) shiftReg1 <- mkRegU;
 
@@ -129,7 +129,7 @@ module mkDualADInternal(DualADInternal);
 
 	let doutBit = cnt[0] - cycleAfterStrobeAdjusted;
 
-	(* fire_when_enabled *)
+	(* no_implicit_conditions, fire_when_enabled *)
 	rule doutHandle(doutBit < 12);
 		shiftReg0 <= (shiftReg0 << 1) | extend(dout0);
 		shiftReg1 <= (shiftReg1 << 1) | extend(dout1);
