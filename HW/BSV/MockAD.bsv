@@ -48,12 +48,10 @@ module [Module] mkMockAD(MockAD);
 		return ch;
 	endfunction
 
-	PciDmaAddr wordBytes = fromInteger(valueOf(PciDmaDataSize) / 8);
-
 	rule requestDma (remaining != 0);
 		dmaReadReq.enq(nextAddr);
 		firstChPending.enq(nextCh);
-		nextAddr <= nextAddr + wordBytes;
+		nextAddr <= nextAddr + dmaWordBytes;
 		nextCh <= chSkipWord(nextCh);
 		remaining <= remaining - 1;
 	endrule

@@ -3,6 +3,7 @@ import AvalonMaster::*;
 import InterruptSender::*;
 import DualAD::*;
 import MockAD::*;
+import ContinuousAcq::*;
 import PipeUtils::*;
 import SysConfig::*;
 import Vector::*;
@@ -35,17 +36,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	Reg#(Bool) adcMocked <- mkReg(False);
 	PipeOut#(ChSample) adcMux = adcMocked ? adcMock.acq : adc.acq;
 
-	Reg#(Maybe#(PciBarData)) dmaAddress <- mkReg(tagged Invalid);
-	Array#(Reg#(Bit#(11))) dmaPtr <- mkCRegU(2);
-
-	function filterCh(ch, chsample) = tpl_1(chsample) == ch;
-	PipeOut#(Vector#(5,Sample)) vecFiveElemPipe <- mkCompose(
-			mkCompose(
-					mkPipeFilter(filterCh(0)),
-					mkFn_to_Pipe(compose(vecBind, tpl_2))
-			),
-			mkUnfunnel(False),
-			adcMux);
+	ContinuousAcq continuousAcq <- mkContinuousAcq(adcMux);
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;
@@ -57,12 +48,11 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			0:
 				action
 					irqSender.resetCounter;
-					dmaAddress <= tagged Valid cmd.data;
-					dmaPtr[1] <= 0;
+					continuousAcq.start(cmd.data);
 				endaction
 			1:
 				action
-					dmaAddress <= tagged Invalid;
+					continuousAcq.stop;
 				endaction
 			2:
 				action
@@ -94,32 +84,26 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		endcase
 	endrule
 
-	rule discardSamples (dmaAddress matches tagged Invalid);
-		vecFiveElemPipe.deq;
-	endrule
-
 	rule arbMockRoundRobin;
 		arbMockPrio <= !arbMockPrio;
 	endrule
 	let mockDmaTurn = adcMocked && arbMockPrio;
 
-	rule transferSamples (!mockDmaTurn &&& dmaAddress matches tagged Valid .dmaAddr);
-		PciDmaData dataWord = extend(pack(vecFiveElemPipe.first));
-		vecFiveElemPipe.deq;
-
+	rule continuousAcqDmaWrite (!mockDmaTurn);
+		match {.addr, .data} <- continuousAcq.dmaReq.get;
 		pcidma.busServer.request.put(AvalonRequest{
-			command: Write,
-			addr: dmaAddr + (extend(dmaPtr[0]) << 3),
-			data: dataWord
+			command:Write,
+			addr: addr,
+			data: data
 		});
-
-		if(dmaPtr[0] == 0 || dmaPtr[0] == 1024)
-			irqSender.send;
-
-		dmaPtr[0] <= dmaPtr[0] + 1;
 	endrule
 
-	rule doMockDma (mockDmaTurn);
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule continuousAcqIrq (continuousAcq.levelAlert);
+		irqSender.send;
+	endrule
+
+	rule mockDmaRead (mockDmaTurn);
 		let addr <- adcMock.dmaCli.request.get;
 		pcidma.busServer.request.put(AvalonRequest{
 			command: Read,
@@ -134,6 +118,6 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	interface barWires = pcibar.slaveWires;
 	interface dmaWires = pcidma.masterWires;
 	interface adWires  = adc.wires;
-	method Bit#(8) getLed = ~extend(isValid(dmaAddress) ? 1'b1 : 1'b0);
+	method Bit#(8) getLed = ~extend(1'b0);
 
 endmodule

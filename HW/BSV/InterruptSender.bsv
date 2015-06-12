@@ -6,9 +6,13 @@ interface InterruptSenderWires;
 endinterface
 
 interface InterruptSender;
+	(* always_ready *)
 	method Action resetCounter;
+	(* always_ready *)
 	method Action send;
+	(* always_ready *)
 	method ActionValue#(PciBarData) ack;
+	
 	interface InterruptSenderWires wires;
 endinterface
 
