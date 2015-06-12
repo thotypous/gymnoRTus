@@ -16,7 +16,7 @@ interface ContinuousAcq;
 
 	(* always_ready *)
 	method Bool levelAlert;
-	
+
 	interface Get#(PciDmaAddrData) dmaReq;
 endinterface
 
@@ -28,19 +28,26 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 	Reg#(PciDmaAddr) baseAddr <- mkRegU;
 	Reg#(PciDmaAddr) nextAddr <- mkRegU;
 
+	PulseWire levelAlertWire <- mkPulseWireOR;
+
 	PipeOut#(Vector#(SamplesPerDmaWord, Sample)) acqVec <- mkCompose(
 			mkFn_to_Pipe(compose(vecBind, tpl_2)),
 			mkUnfunnel(False),
 			acq);
 
+	let halfLevel = valueOf(ContinuousAcqBufSize) / 2;
+
 	rule recycle (running && remaining[0] == 0);
 		remaining[0] <= fromInteger(valueOf(ContinuousAcqBufSize));
+		levelAlertWire.send;
 		nextAddr <= baseAddr;
 	endrule
 
 	rule requestDma (running && remaining[0] != 0);
 		let vec <- toGet(acqVec).get;
 		dmaOut.enq( tuple2( nextAddr, pack(map(extend, vec)) ) );
+		if (remaining[0] == fromInteger(halfLevel))
+			levelAlertWire.send;
 		remaining[0] <= remaining[0] - 1;
 		nextAddr <= nextAddr + dmaWordBytes;
 	endrule
@@ -49,16 +56,14 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 		let _ <- toGet(acqVec).get;
 	endrule
 
-	let halfLevel = valueOf(ContinuousAcqBufSize) / 2;
-	method Bool levelAlert = running &&
-			(remaining[0] == 0 || remaining[0] == fromInteger(halfLevel));
+	method Bool levelAlert = levelAlertWire;
 
 	method Action start(PciDmaAddr addr);
 		baseAddr <= addr;
 		remaining[1] <= 0;
 		running <= True;
 	endmethod
-	
+
 	method Action stop;
 		running <= False;
 	endmethod
