@@ -5,15 +5,18 @@ import itertools
 
 MaxSample = 0xfff
 MaxVoltage = 2.5       # V
-SampleBits = 12        # bits
-NumWords = 1024        # words
-SamplesPerWord = 5     # samples
+SampleBitShift = 16    # bits
+NumWords = 1280        # words
+SamplesPerWord = 4     # samples
 WordBytes = 8          # bytes
 SamplingRate = 50.e3   # Hz
 RenderInterval = 10    # ms
 
+NumCh = 16             # number of channels
+ChIndex = 0            # which channel to plot
+
 def getSamples(buf):
-    return np.array([(long(x)>>(SampleBits*i))&MaxSample
+    return np.array([(long(x)>>(SampleBitShift*i))&MaxSample
                      for x in np.frombuffer(buf, dtype=np.uint64)
                      for i in xrange(SamplesPerWord)], dtype=np.float)
 
@@ -29,7 +32,8 @@ line, = ax.plot(x, np.zeros(totalSamples), c='#00ff00', ls='-', marker='.', ms=2
 ax.axis([0, maxTime, 0, MaxVoltage])
 
 def animate(i):
-    line.set_ydata(MaxVoltage*getSamples(dev.read(WordBytes*NumWords))/MaxSample)
+    allCh = getSamples(dev.read(NumCh*WordBytes*NumWords))
+    line.set_ydata(MaxVoltage * allCh[ChIndex::NumCh] / MaxSample)
     return line,
 
 #Init only required for blitting to give a clean slate.

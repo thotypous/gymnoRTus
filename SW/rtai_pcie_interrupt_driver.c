@@ -26,7 +26,8 @@
 #define AVALONTOP_WSTOP 0x04
 
 #define DMA_BITS 32
-#define DMA_SIZE (2048*sizeof(uint64_t))
+#define DMA_BUF_WORDS 8192
+#define DMA_BUF_SIZE (DMA_BUF_WORDS*sizeof(uint64_t))
 
 static void *avalontop_base;
 
@@ -42,9 +43,9 @@ static int irq_handler(unsigned irq, void *cookie_) {
     const int irq_is_ours = (flag == epoch);
 
     if (likely(irq_is_ours)) {
-        int i = 0, j = (flag % 2 == 0) ? 0 : 1024;
+        int i = 0, j = (flag % 2 == 0) ? 0 : DMA_BUF_WORDS/2;
 
-        for (; i < 1024; i++, j++)
+        for (; i < DMA_BUF_WORDS/2; i++, j++)
             rtf_put(FIFO_DATA, (void*)&dma_ptr[j], sizeof(dma_ptr[0]));
 
         ++epoch;
@@ -98,7 +99,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     }
 
     // Allocate a memory block suitable for coherent DMA
-    dma_ptr = dma_alloc_coherent(&dev->dev, DMA_SIZE, &dma_handle, GFP_KERNEL);
+    dma_ptr = dma_alloc_coherent(&dev->dev, DMA_BUF_SIZE, &dma_handle, GFP_KERNEL);
     if(dma_ptr == NULL) {
         rt_printk("pcie_interrupt_driver: could not allocate memory for DMA\n");
         return -ENOMEM;
@@ -138,7 +139,7 @@ static void pci_remove(struct pci_dev *dev) {
     --n_devices;
 
     if(dma_ptr != NULL)
-        dma_free_coherent(&dev->dev, DMA_SIZE, dma_ptr, dma_handle);
+        dma_free_coherent(&dev->dev, DMA_BUF_SIZE, dma_ptr, dma_handle);
 
     iounmap(avalontop_base);
 
