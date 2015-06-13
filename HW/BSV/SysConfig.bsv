@@ -1,4 +1,4 @@
-typedef 2  PciBarAddrSize;
+typedef 14 PciBarAddrSize;
 typedef 32 PciBarDataSize;
 typedef 32 PciDmaAddrSize;
 typedef 64 PciDmaDataSize;

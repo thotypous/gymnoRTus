@@ -94,7 +94,7 @@ set_interface_property avalon_slave burstcountUnits WORDS
 set_interface_property avalon_slave explicitAddressSpan 0
 set_interface_property avalon_slave holdTime 0
 set_interface_property avalon_slave linewrapBursts false
-set_interface_property avalon_slave maximumPendingReadTransactions 1
+set_interface_property avalon_slave maximumPendingReadTransactions 2
 set_interface_property avalon_slave maximumPendingWriteTransactions 0
 set_interface_property avalon_slave readLatency 0
 set_interface_property avalon_slave readWaitTime 1
@@ -113,7 +113,7 @@ add_interface_port avalon_slave writedata writedata Input 32
 add_interface_port avalon_slave readdata readdata Output 32
 add_interface_port avalon_slave waitrequest waitrequest Output 1
 add_interface_port avalon_slave readdatavalid readdatavalid Output 1
-add_interface_port avalon_slave address address Input 2
+add_interface_port avalon_slave address address Input 14
 set_interface_assignment avalon_slave embeddedsw.configuration.isFlash 0
 set_interface_assignment avalon_slave embeddedsw.configuration.isMemoryDevice 0
 set_interface_assignment avalon_slave embeddedsw.configuration.isNonVolatileStorage 0
