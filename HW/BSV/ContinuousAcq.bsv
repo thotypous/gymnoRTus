@@ -24,14 +24,26 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 	FIFOF#(PciDmaAddrData) dmaOut <- mkFIFOF;
 
 	Reg#(Bool) running <- mkReg(False);
+	Array#(Reg#(Bool)) startSync <- mkCRegU(2);
 	Array#(Reg#(LUInt#(ContinuousAcqBufSize))) remaining <- mkCRegU(2);
 	Reg#(PciDmaAddr) baseAddr <- mkRegU;
 	Reg#(PciDmaAddr) nextAddr <- mkRegU;
 
 	PulseWire levelAlertWire <- mkPulseWireOR;
 
+	function ActionValue#(Bool) letSamplePass(ChSample chsample) =
+		actionvalue
+			// if in startSync phase, only let pass after a channel 0 sample
+			let canPass = running && (!startSync[0] || tpl_1(chsample) == 0);
+			if (canPass)
+				startSync[0] <= False;
+			return canPass;
+		endactionvalue;
+
 	PipeOut#(Vector#(SamplesPerDmaWord, Sample)) acqVec <- mkCompose(
-			mkFn_to_Pipe(compose(vecBind, tpl_2)),
+			mkCompose(
+				mkPipeFilterWithSideEffect(letSamplePass),
+				mkFn_to_Pipe(compose(vecBind, tpl_2))),
 			mkUnfunnel(False),
 			acq);
 
@@ -62,6 +74,7 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 		baseAddr <= addr;
 		remaining[1] <= 0;
 		running <= True;
+		startSync[1] <= True;
 	endmethod
 
 	method Action stop;
