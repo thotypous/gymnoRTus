@@ -31,41 +31,34 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 
 	PulseWire levelAlertWire <- mkPulseWireOR;
 
-	function ActionValue#(Bool) letSamplePass(ChSample chsample) =
-		actionvalue
-			// if in startSync phase, only let pass after a channel 0 sample
-			let canPass = running && (!startSync[0] || tpl_1(chsample) == 0);
-			if (canPass)
-				startSync[0] <= False;
-			return canPass;
-		endactionvalue;
-
-	PipeOut#(Vector#(SamplesPerDmaWord, Sample)) acqVec <- mkCompose(
-			mkCompose(
-				mkPipeFilterWithSideEffect(letSamplePass),
-				mkFn_to_Pipe(compose(vecBind, tpl_2))),
+	PipeOut#(Vector#(SamplesPerDmaWord, ChSample)) acqVec <- mkCompose(
+			mkFn_to_Pipe(vecBind),
 			mkUnfunnel(False),
 			acq);
 
 	let halfLevel = valueOf(ContinuousAcqBufSize) / 2;
 
-	rule recycle (running && remaining[0] == 0);
+	rule recycle (running && !startSync[0] && remaining[0] == 0);
 		remaining[0] <= fromInteger(valueOf(ContinuousAcqBufSize));
 		levelAlertWire.send;
 		nextAddr <= baseAddr;
 	endrule
 
-	rule requestDma (running && remaining[0] != 0);
+	rule requestDma (running && !startSync[0] && remaining[0] != 0);
 		let vec <- toGet(acqVec).get;
-		dmaOut.enq( tuple2( nextAddr, pack(map(extend, vec)) ) );
+		dmaOut.enq( tuple2( nextAddr, pack(map(compose(extend, tpl_2), vec)) ) );
 		if (remaining[0] == fromInteger(halfLevel))
 			levelAlertWire.send;
 		remaining[0] <= remaining[0] - 1;
 		nextAddr <= nextAddr + dmaWordBytes;
 	endrule
 
-	rule discard (!running);
-		let _ <- toGet(acqVec).get;
+	rule discard (!running || startSync[0]);
+		let vec = acqVec.first;
+		if (!running || tpl_1(vec[0]) != 0)
+			acqVec.deq;
+		else
+			startSync[0] <= False;
 	endrule
 
 	method Bool levelAlert = levelAlertWire;

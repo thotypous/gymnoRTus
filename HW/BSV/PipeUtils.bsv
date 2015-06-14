@@ -17,25 +17,17 @@ function PipeOut#(a) f_SyncFIFOIfc_to_PipeOut(SyncFIFOIfc#(a) sync);
 		endinterface);
 endfunction
 
-module mkPipeFilterWithSideEffect#(function ActionValue#(Bool) cond(a x), PipeOut#(a) in) (PipeOut#(a))
+module mkPipeFilter#(function Bool cond(a x), PipeOut#(a) in) (PipeOut#(a))
 		provisos (Bits#(a, sa));
 	FIFOF#(a) out <- mkFIFOF;
 
 	rule makeDecision;
 		in.deq;
-		let condValue <- cond(in.first);
-		if (condValue)
+		if (cond(in.first))
 			out.enq(in.first);
 	endrule
 
 	return f_FIFOF_to_PipeOut(out);
-endmodule
-
-module mkPipeFilter#(function Bool cond(a x), PipeOut#(a) in) (PipeOut#(a))
-		provisos (Bits#(a, sa));
-	function ActionValue#(Bool) liftedCond(a x) = actionvalue return cond(x); endactionvalue;
-	(*hide*) let m <- mkPipeFilterWithSideEffect(liftedCond, in);
-	return m;
 endmodule
 
 function Vector#(1,a) vecBind(a elem) = Vector::cons(elem, Vector::nil);
