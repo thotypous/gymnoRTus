@@ -43,11 +43,8 @@ static int irq_handler(unsigned irq, void *cookie_) {
     const int irq_is_ours = (flag == epoch);
 
     if (likely(irq_is_ours)) {
-        int i = 0, j = (flag % 2 == 0) ? 0 : DMA_BUF_WORDS/2;
-
-        for (; i < DMA_BUF_WORDS/2; i++, j++)
-            rtf_put(FIFO_DATA, (void*)&dma_ptr[j], sizeof(dma_ptr[0]));
-
+        const int firstIndex = (flag % 2 == 0) ? 0 : DMA_BUF_WORDS/2;
+        rtf_put(FIFO_DATA, (void*)&dma_ptr[firstIndex], DMA_BUF_SIZE/2);
         ++epoch;
     }
 
