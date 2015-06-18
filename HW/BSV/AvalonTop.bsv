@@ -61,7 +61,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				endaction
 			3:
 				action
-					adcMocked <= False;
+					adcMocked <= cmd.data != 0 ? True : False;
 				endaction
 			endcase
 		Read:
@@ -118,6 +118,11 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	interface barWires = pcibar.slaveWires;
 	interface dmaWires = pcidma.masterWires;
 	interface adWires  = adc.wires;
-	method Bit#(8) getLed = ~extend(1'b0);
+
+	method Bit#(8) getLed = ~extend({
+		pack(continuousAcq.isRunning),
+		pack(adcMock.isBusy),
+		pack(adcMocked)
+	});
 
 endmodule

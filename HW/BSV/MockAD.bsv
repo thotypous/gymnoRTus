@@ -10,8 +10,9 @@ import DualAD::*;
 import SysConfig::*;
 
 interface MockAD;
-	method Bool isBusy;
 	method Action start(PciDmaAddr addr);
+	(* always_ready *)
+	method Bool isBusy;
 	interface Client#(PciDmaAddr, PciDmaData) dmaCli;
 	interface PipeOut#(ChSample) acq;
 endinterface
@@ -19,12 +20,12 @@ endinterface
 module [Module] mkMockAD(MockAD);
 	FIFOF#(PciDmaAddr) dmaReadReq <- mkFIFOF;
 	FIFOF#(PciDmaData) dmaResp <- mkFIFOF;
-	FIFOF#(Vector#(SamplesPerDmaWord, ChSample)) dmaOut <- mkFIFOF;
+	FIFOF#(Vector#(SamplesPerDmaWord, ChSample)) fromDma <- mkFIFOF;
 
 	PipeOut#(ChSample) acqOut <- mkCompose(
 			mkFunnel,
 			mkFn_to_Pipe(vecUnbind),
-			f_FIFOF_to_PipeOut(dmaOut));
+			f_FIFOF_to_PipeOut(fromDma));
 
 	Reg#(LUInt#(MockADBufSize)) remaining <- mkReg(0);
 	Reg#(PciDmaAddr) nextAddr <- mkRegU;
@@ -68,7 +69,7 @@ module [Module] mkMockAD(MockAD);
 			ch = incCh(ch);
 		end
 
-		dmaOut.enq(chSamples);
+		fromDma.enq(chSamples);
 	endrule
 
 	method Action start(PciDmaAddr addr) if (!busy);

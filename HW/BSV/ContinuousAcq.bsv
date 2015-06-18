@@ -13,10 +13,10 @@ typedef TDiv#(ContinuousAcqBufSize, 2) HalfBufSize;
 interface ContinuousAcq;
 	method Action start(PciDmaAddr addr);
 	method Action stop;
-
 	(* always_ready *)
 	method Bool levelAlert;
-
+	(* always_ready *)
+	method Bool isRunning;
 	interface Get#(PciDmaAddrData) dmaReq;
 endinterface
 
@@ -62,6 +62,7 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 	endrule
 
 	method Bool levelAlert = levelAlertWire;
+	method Bool isRunning = running;
 
 	method Action start(PciDmaAddr addr);
 		baseAddr <= addr;
