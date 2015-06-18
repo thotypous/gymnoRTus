@@ -1,7 +1,7 @@
 QUARTUS_ROOTDIR ?= /opt/altera/14.1/quartus
 BLUESPECHOME ?= /opt/bluespec/Bluespec-2014.07.A
 
-BSCFLAGS=-no-lift -aggressive-conditions -opt-undetermined-vals -unspecified-to X -suppress-warnings G0046
+BSCFLAGS=-opt-undetermined-vals -unspecified-to X -suppress-warnings G0046
 BSCLIBS=altsourceprobe
 
 all: output_files/de4_pcie.sof

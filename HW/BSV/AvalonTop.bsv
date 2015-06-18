@@ -34,7 +34,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	Reg#(Bool) arbMockPrio <- mkRegU;
 
 	Reg#(Bool) adcMocked <- mkReg(False);
-	PipeOut#(ChSample) adcMux = adcMocked ? adcMock.acq : adc.acq;
+	PipeOut#(ChSample) adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
 
 	ContinuousAcq continuousAcq <- mkContinuousAcq(adcMux);
 
@@ -120,6 +120,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	interface adWires  = adc.wires;
 
 	method Bit#(8) getLed = ~extend({
+		pack(continuousAcq.isSyncing),
 		pack(continuousAcq.isRunning),
 		pack(adcMock.isBusy),
 		pack(adcMocked)
