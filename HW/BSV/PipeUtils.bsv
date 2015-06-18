@@ -26,6 +26,7 @@ module mkPipeFilterWithSideEffect#(function ActionValue#(Bool) cond(a x), PipeOu
 	rule makeDecision;
 		in.deq;
 		let condValue <- cond(in.first);
+		(*nosplit*)
 		if (condValue)
 			out.enq(in.first);
 	endrule
