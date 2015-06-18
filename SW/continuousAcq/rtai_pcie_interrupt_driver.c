@@ -42,6 +42,8 @@ static int irq_handler(unsigned irq, void *cookie_) {
     const uint32_t flag = ioread32(avalontop_base + AVALONTOP_RFLAG);
     const int irq_is_ours = (flag == epoch);
 
+    rt_printk("pcie_interrupt_driver: IRQ: %d == %d\n", flag, epoch);
+
     if (likely(irq_is_ours)) {
         const int firstIndex = (flag % 2 == 0) ? 0 : DMA_BUF_WORDS/2;
         rtf_put(FIFO_DATA, (void*)&dma_ptr[firstIndex], DMA_BUF_SIZE/2);

@@ -120,6 +120,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	interface adWires  = adc.wires;
 
 	method Bit#(8) getLed = ~extend({
+		pack(continuousAcq.isSyncing),
 		pack(continuousAcq.isRunning),
 		pack(adcMock.isBusy),
 		pack(adcMocked)

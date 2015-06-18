@@ -17,6 +17,8 @@ interface ContinuousAcq;
 	method Bool levelAlert;
 	(* always_ready *)
 	method Bool isRunning;
+	(* always_ready *)
+	method Bool isSyncing;
 	interface Get#(PciDmaAddrData) dmaReq;
 endinterface
 
@@ -69,6 +71,7 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 
 	method Bool levelAlert = levelAlertWire;
 	method Bool isRunning = running;
+	method Bool isSyncing = startSync[0];
 
 	method Action start(PciDmaAddr addr);
 		baseAddr <= addr;
