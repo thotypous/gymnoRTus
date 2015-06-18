@@ -45,8 +45,8 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 				clearUnfunnel.send;  // break cyclic reference [toUnfunnel <-> unfunnel]
 			end
 			return canPass;*/
-			if (!startSync[0])
-				discardedChSamples.put(chsample);
+			/*if (!startSync[0])
+				discardedChSamples.put(chsample);*/
 			return startSync[0];
 		endactionvalue;
 
