@@ -7,6 +7,8 @@ import PipeUtils::*;
 import DualAD::*;
 import SysConfig::*;
 
+import JtagGetPut::*;
+
 typedef Tuple2#(PciDmaAddr, PciDmaData) PciDmaAddrData;
 typedef TDiv#(ContinuousAcqBufSize, 2) HalfBufSize;
 
@@ -32,6 +34,8 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 	PulseWire levelAlertWire <- mkPulseWireOR;
 	PulseWire clearUnfunnel <- mkPulseWire;
 
+	Put#(ChSample) discardedChSamples <- mkJtagPut("DSAM", mkSizedFIFOF(2048));
+
 	function ActionValue#(Bool) letSamplePass(ChSample chsample) =
 		actionvalue
 			// if in startSync phase, only let pass after a channel 0 sample
@@ -41,6 +45,8 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
 				clearUnfunnel.send;  // break cyclic reference [toUnfunnel <-> unfunnel]
 			end
 			return canPass;*/
+			if (!startSync[0])
+				discardedChSamples.put(chsample);
 			return startSync[0];
 		endactionvalue;
 

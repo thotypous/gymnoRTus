@@ -219,7 +219,7 @@ static int pcie_interrupt_init(void) {
 static void pcie_interrupt_exit(void) {
     rtf_destroy(FIFO_MOCK);
 
-    //iowrite32(0, avalontop_base + AVALONTOP_WSTOP);
+    iowrite32(0, avalontop_base + AVALONTOP_WSTOP);
     //iowrite32(0, avalontop_base + AVALONTOP_MOCKEN);
 
     rtf_destroy(FIFO_DATA);

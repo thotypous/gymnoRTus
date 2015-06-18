@@ -33,7 +33,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	MockAD adcMock <- mkMockAD;
 	Reg#(Bool) arbMockPrio <- mkRegU;
 
-	Reg#(Bool) adcMocked <- mkReg(False);
+	Reg#(Bool) adcMocked <- mkReg(True);
 	PipeOut#(ChSample) adcMux = adcMocked ? adcMock.acq : adc.acq;
 
 	ContinuousAcq continuousAcq <- mkContinuousAcq(adcMux);
