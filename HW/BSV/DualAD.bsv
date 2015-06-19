@@ -170,7 +170,7 @@ module [Module] mkDualAD(Clock sClk, DualAD ifc);
 	PipeOut#( Vector#(1, Tuple2#(Tuple2#(ChSel, Sample), UInt#(1)) ) )
 			funnelOutput <- mkCompose(
 					mkFn_to_Pipe(makeFunnelInput),
-					mkFunnel_Indexed,
+					PipeUtils::mkFunnel_Indexed,
 					f_SyncFIFOIfc_to_PipeOut(sync));
 
 	function makeToAcq(vec);
