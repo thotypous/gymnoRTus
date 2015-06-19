@@ -23,7 +23,7 @@ module [Module] mkMockAD(MockAD);
 	FIFOF#(Vector#(SamplesPerDmaWord, ChSample)) fromDma <- mkFIFOF;
 
 	PipeOut#(ChSample) acqOut <- mkCompose(
-			PipeUtils::mkFunnel,
+			mkFunnel,
 			mkFn_to_Pipe(vecUnbind),
 			f_FIFOF_to_PipeOut(fromDma));
 
