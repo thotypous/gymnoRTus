@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -12,7 +13,7 @@ SamplingRate = 50.e3   # Hz
 RenderInterval = 10    # ms
 
 NumCh = 16             # number of channels
-ChIndex = 0            # which channel to plot
+ChIndex = int(sys.argv[1])  # which channel to plot
 
 dev = open('/dev/rtf0', 'rb')
 
