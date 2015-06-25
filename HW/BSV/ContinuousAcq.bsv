@@ -7,7 +7,6 @@ import PipeUtils::*;
 import DualAD::*;
 import SysConfig::*;
 
-typedef Tuple2#(PciDmaAddr, PciDmaData) PciDmaAddrData;
 typedef TDiv#(ContinuousAcqBufSize, 2) HalfBufSize;
 
 interface ContinuousAcq;

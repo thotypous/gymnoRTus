@@ -1,6 +1,12 @@
 # Bluespec
 *.bo
-mk*.v
+*.ba
+*.o
+*.so
+/BSV/*.cxx
+/BSV/*.h
+mk[A-Z]*.v
+/emu
 
 # Quartus II
 *.sopcinfo

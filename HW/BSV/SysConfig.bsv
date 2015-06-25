@@ -17,6 +17,7 @@ typedef Bit#(PciBarAddrSize) PciBarAddr;
 typedef Bit#(PciBarDataSize) PciBarData;
 typedef Bit#(PciDmaAddrSize) PciDmaAddr;
 typedef Bit#(PciDmaDataSize) PciDmaData;
+typedef Tuple2#(PciDmaAddr, PciDmaData) PciDmaAddrData;
 
 typedef TDiv#(PciDmaDataSize, SamplesPerDmaWord) DmaSampleSize;
 typedef Bit#(DmaSampleSize) DmaSample;
