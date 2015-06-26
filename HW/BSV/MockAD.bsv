@@ -17,7 +17,12 @@ interface MockAD;
 	interface PipeOut#(ChSample) acq;
 endinterface
 
-module [Module] mkMockAD(MockAD);
+module [Module] mkMockAD(MockAD)
+		provisos (
+			Bits#(ChNum, chnum_bits),
+			// make sure a whole block of channels fits into the buffer
+			Mul#(TExp#(chnum_bits), ignore_1, TMul#(MockADBufSize, SamplesPerDmaWord))
+		);
 	FIFOF#(PciDmaAddr) dmaReadReq <- mkFIFOF;
 	FIFOF#(PciDmaData) dmaResp <- mkFIFOF;
 	FIFOF#(Vector#(SamplesPerDmaWord, ChSample)) fromDma <- mkFIFOF;

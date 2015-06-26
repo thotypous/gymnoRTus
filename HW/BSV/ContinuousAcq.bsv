@@ -21,7 +21,12 @@ interface ContinuousAcq;
 	interface Get#(PciDmaAddrData) dmaReq;
 endinterface
 
-module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq);
+module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
+		provisos (
+			Bits#(ChNum, chnum_bits),
+			// make sure a whole block of channels fits into half the buffer
+			Mul#(TExp#(chnum_bits), ignore_1, TMul#(HalfBufSize, SamplesPerDmaWord))
+		);
 	FIFOF#(PciDmaAddrData) dmaOut <- mkFIFOF;
 
 	Reg#(Bool) running <- mkReg(False);
