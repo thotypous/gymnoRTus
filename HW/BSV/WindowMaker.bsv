@@ -13,7 +13,7 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 	FIFOF#(PciDmaAddrData) dmaOut <- mkFIFOF;
 
 	rule test;
-		$display(acq.first);
+		$display(fshow(acq.first));
 		acq.deq;
 	endrule
 

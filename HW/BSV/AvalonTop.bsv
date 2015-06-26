@@ -4,6 +4,7 @@ import InterruptSender::*;
 import DualAD::*;
 import MockAD::*;
 import ContinuousAcq::*;
+import ChannelFilter::*;
 import PipeUtils::*;
 import SysConfig::*;
 import Vector::*;
