@@ -62,7 +62,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				endaction
 			3:
 				action
-					adcMocked <= cmd.data != 0 ? True : False;
+					adcMocked <= cmd.data != 0;
 				endaction
 			endcase
 		Read:
