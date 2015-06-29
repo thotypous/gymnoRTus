@@ -4,6 +4,7 @@ import InterruptSender::*;
 import DualAD::*;
 import MockAD::*;
 import ContinuousAcq::*;
+import OffsetSubtractor::*;
 import ChannelFilter::*;
 import PipeUtils::*;
 import SysConfig::*;
@@ -35,7 +36,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	Reg#(Bool) arbMockPrio <- mkRegU;
 
 	Reg#(Bool) adcMocked <- mkReg(False);
-	PipeOut#(ChSample) adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
+	PipeOut#(DualAD::ChSample) adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
 
 	ContinuousAcq continuousAcq <- mkContinuousAcq(adcMux);
 
@@ -62,7 +63,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				endaction
 			3:
 				action
-					adcMocked <= cmd.data != 0;
+					adcMocked <= cmd.data != 0 ? True : False;
 				endaction
 			endcase
 		Read:

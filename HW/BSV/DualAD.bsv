@@ -9,13 +9,15 @@ import PipeUtils::*;
 
 export DualAD(..);
 export DualADWires(..);
+export SampleBits(..);
 export Sample(..);
 export ChNum(..);
 export ChSel(..);
 export ChSample(..);
 export mkDualAD;
 
-typedef Bit#(12) Sample;
+typedef 12 SampleBits;
+typedef Bit#(SampleBits) Sample;
 typedef Bit#(4) ChNum;
 typedef Bit#(3) ChSel;
 typedef Bit#(8) Byte;
