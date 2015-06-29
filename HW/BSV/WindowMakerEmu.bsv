@@ -5,7 +5,7 @@ import TieOff::*;
 import GetPut::*;
 import BUtils::*;
 import PipeUtils::*;
-import DualAD::*;
+import OffsetSubtractor::*;
 import ChannelFilter::*;
 import SysConfig::*;
 
@@ -37,8 +37,8 @@ module [Module] mkWindowMakerEmu(Empty);
 			Bit#(8) b = truncate(pack(c));
 			word = zExtendLSB(b) | (word >> 8);
 		end
-		Sample sample = truncate(word);
-		if (extend(sample) != word) begin
+		Sample sample = truncate(unpack(word));
+		if (extend(sample) != unpack(word)) begin
 			$display("Information loss in sample conversion during simulation!");
 			$finish(1);
 		end
