@@ -6,6 +6,7 @@ import MockAD::*;
 import ContinuousAcq::*;
 import OffsetSubtractor::*;
 import ChannelFilter::*;
+import WindowMaker::*;
 import PipeUtils::*;
 import SysConfig::*;
 import Vector::*;
@@ -36,9 +37,14 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	Reg#(Bool) arbMockPrio <- mkRegU;
 
 	Reg#(Bool) adcMocked <- mkReg(False);
-	PipeOut#(DualAD::ChSample) adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
+	let adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
+	let adcFork <- mkFork(duplicate, adcMux);
 
-	ContinuousAcq continuousAcq <- mkContinuousAcq(adcMux);
+	ContinuousAcq continuousAcq <- mkContinuousAcq(tpl_1(adcFork));
+
+	let filteredPipe <- mkChannelFilter(tpl_2(adcFork));
+	OffsetSubtractor offsetSub <- mkOffsetSubtractor(filteredPipe);
+	WindowMaker wmaker <- mkWindowMaker(offsetSub.out);
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;
@@ -46,35 +52,39 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		case (cmd.command)
 		Write:
 			(*split*)
-			case (cmd.addr)
-			0:
+			case (cmd.addr) matches
+			14'd0:
 				action
 					irqSender.resetCounter;
 					continuousAcq.start(cmd.data);
 				endaction
-			1:
+			14'd1:
 				action
 					continuousAcq.stop;
 				endaction
-			2:
+			14'd2:
 				action
 					adcMocked <= True;
 					adcMock.start(cmd.data);
 				endaction
-			3:
+			14'd3:
 				action
-					adcMocked <= cmd.data != 0 ? True : False;
+					adcMocked <= cmd.data != 0;
+				endaction
+			14'h1?:
+				action
+					offsetSub.setOffset(cmd.addr[3:0], truncate(cmd.data));
 				endaction
 			endcase
 		Read:
 			(*split*)
-			case (cmd.addr)
-			0:
+			case (cmd.addr) matches
+			14'd0:
 				action
 					let counter <- irqSender.ack;
 					pcibar.busClient.response.put(counter);
 				endaction
-			2:
+			14'd2:
 				action
 					pcibar.busClient.response.put(adcMock.isBusy ? 1 : 0);
 				endaction

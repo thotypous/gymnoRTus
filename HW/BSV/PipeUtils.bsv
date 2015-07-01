@@ -110,3 +110,7 @@ endmodule
 function Vector#(1,a) vecBind(a elem) = Vector::cons(elem, Vector::nil);
 
 function a vecUnbind(Vector#(1,a) vec) = vec[0];
+
+typedef Tuple2#(a,a) Pair#(type a);
+
+function Pair#(a) duplicate(a x) = tuple2(x,x);
