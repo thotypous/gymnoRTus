@@ -5,17 +5,19 @@ import PipeUtils::*;
 import OffsetSubtractor::*;
 import SysConfig::*;
 
-interface WindowMaker;
-	interface Get#(PciDmaAddrData) dmaReq;
-endinterface
+typedef union tagged {
+	ChSample ChSample;
+	WindowSize StartFound;
+	void EndMarker;
+} OutItem deriving (Eq, Bits);
 
-module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
-	FIFOF#(PciDmaAddrData) dmaOut <- mkFIFOF;
+module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
+	FIFOF#(OutItem) fifoOut <- mkFIFOF;
 
 	rule test;
 		$display(fshow(acq.first));
 		acq.deq;
 	endrule
 
-	interface dmaReq = toGet(dmaOut);
+	return f_FIFOF_to_PipeOut(fifoOut);
 endmodule

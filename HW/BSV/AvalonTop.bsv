@@ -7,6 +7,7 @@ import ContinuousAcq::*;
 import OffsetSubtractor::*;
 import ChannelFilter::*;
 import WindowMaker::*;
+import WindowDMA::*;
 import PipeUtils::*;
 import SysConfig::*;
 import Vector::*;
@@ -44,7 +45,8 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	let filteredPipe <- mkChannelFilter(tpl_2(adcFork));
 	OffsetSubtractor offsetSub <- mkOffsetSubtractor(filteredPipe);
-	WindowMaker wmaker <- mkWindowMaker(offsetSub.out);
+	let winPipe <- mkWindowMaker(offsetSub.out);
+	WindowDMA winDma <- mkWindowDMA(winPipe);
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;

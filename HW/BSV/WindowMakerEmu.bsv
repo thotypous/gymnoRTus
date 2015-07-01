@@ -1,7 +1,6 @@
 import WindowMaker::*;
 import PAClib::*;
 import FIFOF::*;
-import TieOff::*;
 import GetPut::*;
 import BUtils::*;
 import PipeUtils::*;
@@ -9,24 +8,12 @@ import OffsetSubtractor::*;
 import ChannelFilter::*;
 import SysConfig::*;
 
-export GetPut::*; // silences nonsense T0127 warning
-
-instance TieOff#(Get#(t))
-		provisos (Bits#(t,st), FShow#(t));
-	module mkTieOff#(Get#(t) ifc) (Empty);
-		rule getSink (True);
-			t val <- ifc.get;
-			$display("Get tieoff %m", fshow(val));
-		endrule
-	endmodule
-endinstance
-
 (*synthesize*)
 module [Module] mkWindowMakerEmu(Empty);
 	FIFOF#(ChSample) acqfifo <- mkFIFOF;
 	Reg#(LUInt#(NumEnabledChannels)) chIndex <- mkReg(0);
 
-	WindowMaker wmaker <- mkWindowMaker(f_FIFOF_to_PipeOut(acqfifo));
+	let wmaker <- mkWindowMaker(f_FIFOF_to_PipeOut(acqfifo));
 
 	function ActionValue#(Sample) readSample = actionvalue
 		Bit#(16) word = 0;
@@ -51,5 +38,5 @@ module [Module] mkWindowMakerEmu(Empty);
 		chIndex <= (chIndex + 1) % fromInteger(numEnabledChannels);
 	endrule
 
-	mkTieOff(wmaker.dmaReq);
+	mkSink(wmaker);
 endmodule
