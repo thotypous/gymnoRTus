@@ -1,3 +1,3 @@
 [submodule "HW/altsourceprobe"]
 	path = HW/altsourceprobe
-	url = git@github.com:thotypous/altsourceprobe.git
+	url = https://github.com/thotypous/altsourceprobe.git
