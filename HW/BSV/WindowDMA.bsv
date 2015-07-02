@@ -7,7 +7,7 @@ import WindowMaker::*;
 import SysConfig::*;
 
 interface WindowDMA;
-	interface Get#(PciDmaAddrData) dmaReq;
+	interface PipeOut#(PciDmaAddrData) dmaWriteReq;
 endinterface
 
 module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe) (WindowDMA);
@@ -18,5 +18,5 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe) (WindowDMA);
 		winPipe.deq;
 	endrule
 
-	interface Get dmaReq = toGet(dmaOut);
+	interface PipeOut dmaWriteReq = f_FIFOF_to_PipeOut(dmaOut);
 endmodule

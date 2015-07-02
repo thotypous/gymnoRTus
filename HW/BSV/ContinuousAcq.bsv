@@ -18,7 +18,7 @@ interface ContinuousAcq;
 	method Bool isRunning;
 	(* always_ready *)
 	method Bool isSyncing;
-	interface Get#(PciDmaAddrData) dmaReq;
+	interface PipeOut#(PciDmaAddrData) dmaWriteReq;
 endinterface
 
 module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
@@ -88,5 +88,5 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
 		running <= False;
 	endmethod
 
-	interface Get dmaReq = toGet(dmaOut);
+	interface PipeOut dmaWriteReq = f_FIFOF_to_PipeOut(dmaOut);
 endmodule

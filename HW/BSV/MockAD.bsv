@@ -13,7 +13,8 @@ interface MockAD;
 	method Action start(PciDmaAddr addr);
 	(* always_ready *)
 	method Bool isBusy;
-	interface Client#(PciDmaAddr, PciDmaData) dmaCli;
+	interface PipeOut#(PciDmaAddr) dmaReadReq;
+	interface Put#(PciDmaData) dmaReadResp;
 	interface PipeOut#(ChSample) acq;
 endinterface
 
@@ -23,7 +24,7 @@ module [Module] mkMockAD(MockAD)
 			// make sure a whole block of channels fits into the buffer
 			Mul#(TExp#(chnum_bits), ignore_1, TMul#(MockADBufSize, SamplesPerDmaWord))
 		);
-	FIFOF#(PciDmaAddr) dmaReadReq <- mkFIFOF;
+	FIFOF#(PciDmaAddr) dmaReq <- mkFIFOF;
 	FIFOF#(PciDmaData) dmaResp <- mkFIFOF;
 	FIFOF#(Vector#(SamplesPerDmaWord, ChSample)) fromDma <- mkFIFOF;
 
@@ -55,7 +56,7 @@ module [Module] mkMockAD(MockAD)
 	endfunction
 
 	rule requestDma (remaining != 0);
-		dmaReadReq.enq(nextAddr);
+		dmaReq.enq(nextAddr);
 		firstChPending.enq(nextCh);
 		nextAddr <= nextAddr + dmaWordBytes;
 		nextCh <= chSkipWord(nextCh);
@@ -86,5 +87,6 @@ module [Module] mkMockAD(MockAD)
 	method Bool isBusy = busy;
 
 	interface acq = acqOut;
-	interface Client dmaCli = toGPClient(dmaReadReq, dmaResp);
+	interface PipeOut dmaReadReq = f_FIFOF_to_PipeOut(dmaReq);
+	interface Put dmaReadResp = toPut(dmaResp);
 endmodule

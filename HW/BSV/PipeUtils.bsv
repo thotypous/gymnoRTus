@@ -2,6 +2,7 @@ import PAClib::*;
 import FIFOF::*;
 import Vector::*;
 import Clocks::*;
+import Arbiter::*;
 
 
 function PipeOut#(a) f_SyncFIFOIfc_to_PipeOut(SyncFIFOIfc#(a) sync);
@@ -104,6 +105,39 @@ module mkClearableUnfunnel
 			return (index[0] == k);
 		endmethod
 	endinterface);
+endmodule
+
+
+module [Module] mkPipeArbiter
+		#(Module#(Arbiter_IFC#(n)) mkArbiter, Vector#(n, PipeOut#(a)) inputs)
+		(PipeOut#(a))
+
+		provisos (Bits#(a, sa));
+
+	Arbiter_IFC#(n) arbiter <- mkArbiter;
+	FIFOF#(a) fifoOut <- mkFIFOF;
+
+	for (Integer i = 0; i < valueOf(n); i = i + 1)
+		rule requestSlot (inputs[i].notEmpty);
+			arbiter.clients[i].request;
+		endrule
+
+	// Need to help Bluespec scheduler here, as it does not
+	// detect that the rules are mutually exclusive just by
+	// analyzing their predicate
+	Rules spendRules = emptyRules;
+
+	for (Integer i = 0; i < valueOf(n); i = i + 1)
+		spendRules = rJoinMutuallyExclusive(spendRules, rules
+			rule spendGrant (arbiter.clients[i].grant);
+				fifoOut.enq(inputs[i].first);
+				inputs[i].deq;
+			endrule
+		endrules);
+
+	addRules(spendRules);
+
+	return f_FIFOF_to_PipeOut(fifoOut);
 endmodule
 
 

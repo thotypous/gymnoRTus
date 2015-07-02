@@ -9,9 +9,13 @@ import ChannelFilter::*;
 import WindowMaker::*;
 import WindowDMA::*;
 import PipeUtils::*;
+import MonadUtils::*;
 import SysConfig::*;
 import Vector::*;
 import Connectable::*;
+import Arbiter::*;
+
+typedef AvalonRequest#(PciDmaAddrSize, PciDmaDataSize) DmaReq;
 
 interface AvalonTop;
 	(* prefix="" *)
@@ -33,9 +37,9 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
 	InterruptSender irqSender <- mkInterruptSender;
 
+
 	DualAD adc <- mkDualAD(adsclk);
 	MockAD adcMock <- mkMockAD;
-	Reg#(Bool) arbMockPrio <- mkRegU;
 
 	Reg#(Bool) adcMocked <- mkReg(False);
 	let adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
@@ -47,6 +51,33 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	OffsetSubtractor offsetSub <- mkOffsetSubtractor(filteredPipe);
 	let winPipe <- mkWindowMaker(offsetSub.out);
 	WindowDMA winDma <- mkWindowDMA(winPipe);
+
+
+	function avalonWriteReq(req) = AvalonRequest{
+		command: Write,
+		addr: tpl_1(req),
+		data: tpl_2(req)
+	};
+
+	function avalonReadReq(req) = AvalonRequest{
+		command: Read,
+		addr: req,
+		data: ?
+	};
+
+	Module#(PipeOut#(DmaReq)) dmaReqArr[3] = {
+		// Read request source: there should be only one, since we
+		// did not implement an "origin of pending request" FIFO
+		mkFn_to_Pipe(avalonReadReq, adcMock.dmaReadReq),
+
+		// Write request sources
+		mkFn_to_Pipe(avalonWriteReq, continuousAcq.dmaWriteReq),
+		mkFn_to_Pipe(avalonWriteReq, winDma.dmaWriteReq)
+	};
+
+	Vector#(3, PipeOut#(DmaReq)) dmaReqVec <- mkVec(arrayToVector(dmaReqArr));
+	let dmaReqArb <- mkPipeArbiter(mkArbiter(False), dmaReqVec);
+
 
 	rule handleCmd;
 		let cmd <- pcibar.busClient.request.get;
@@ -98,35 +129,15 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		endcase
 	endrule
 
-	rule arbMockRoundRobin;
-		arbMockPrio <= !arbMockPrio;
-	endrule
-	let mockDmaTurn = adcMocked && arbMockPrio;
-
-	rule continuousAcqDmaWrite (!mockDmaTurn);
-		match {.addr, .data} <- continuousAcq.dmaReq.get;
-		pcidma.busServer.request.put(AvalonRequest{
-			command:Write,
-			addr: addr,
-			data: data
-		});
-	endrule
 
 	(* fire_when_enabled, no_implicit_conditions *)
 	rule continuousAcqIrq (continuousAcq.levelAlert);
 		irqSender.send;
 	endrule
 
-	rule mockDmaRead (mockDmaTurn);
-		let addr <- adcMock.dmaCli.request.get;
-		pcidma.busServer.request.put(AvalonRequest{
-			command: Read,
-			addr: addr,
-			data: ?
-		});
-	endrule
+	mkConnection(pcidma.busServer.request, toGet(dmaReqArb));
+	mkConnection(pcidma.busServer.response, adcMock.dmaReadResp);
 
-	mkConnection(pcidma.busServer.response, adcMock.dmaCli.response);
 
 	interface irqWires = irqSender.wires;
 	interface barWires = pcibar.slaveWires;
