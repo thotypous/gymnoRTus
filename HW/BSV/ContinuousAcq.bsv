@@ -13,15 +13,13 @@ interface ContinuousAcq;
 	method Action start(PciDmaAddr addr);
 	method Action stop;
 	(* always_ready *)
-	method Bool levelAlert;
-	(* always_ready *)
 	method Bool isRunning;
 	(* always_ready *)
 	method Bool isSyncing;
 	interface PipeOut#(PciDmaAddrData) dmaWriteReq;
 endinterface
 
-module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
+module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq, PulseWire irq) (ContinuousAcq)
 		provisos (
 			Bits#(ChNum, chnum_bits),
 			// make sure a whole block of channels fits into half the buffer
@@ -35,7 +33,6 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
 	Reg#(PciDmaAddr) baseAddr <- mkRegU;
 	Reg#(PciDmaAddr) nextAddr <- mkRegU;
 
-	PulseWire levelAlertWire <- mkPulseWireOR;
 	PulseWire clearUnfunnel <- mkPulseWire;
 
 	function ActionValue#(Bool) letSamplePass(ChSample chsample) =
@@ -56,7 +53,7 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
 
 	rule recycle (running && remaining[0] == 0);
 		remaining[0] <= fromInteger(valueOf(ContinuousAcqBufSize));
-		levelAlertWire.send;
+		irq.send;
 		nextAddr <= baseAddr;
 	endrule
 
@@ -64,7 +61,7 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
 		let vec <- toGet(unfunnel).get;
 		dmaOut.enq( tuple2( nextAddr, pack(map(extend, vec)) ) );
 		if (remaining[0] == fromInteger(halfLevel))
-			levelAlertWire.send;
+			irq.send;
 		remaining[0] <= remaining[0] - 1;
 		nextAddr <= nextAddr + dmaWordBytes;
 	endrule
@@ -73,7 +70,6 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
 		unfunnel.deq;
 	endrule
 
-	method Bool levelAlert = levelAlertWire;
 	method Bool isRunning = running;
 	method Bool isSyncing = startSync[0];
 
@@ -88,5 +84,5 @@ module [Module] mkContinuousAcq#(PipeOut#(ChSample) acq) (ContinuousAcq)
 		running <= False;
 	endmethod
 
-	interface PipeOut dmaWriteReq = f_FIFOF_to_PipeOut(dmaOut);
+	interface dmaWriteReq = f_FIFOF_to_PipeOut(dmaOut);
 endmodule

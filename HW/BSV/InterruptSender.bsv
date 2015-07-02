@@ -1,3 +1,5 @@
+import Vector::*;
+import GetPut::*;
 import SysConfig::*;
 
 interface InterruptSenderWires;
@@ -5,34 +7,47 @@ interface InterruptSenderWires;
 	method Bit#(1) ins;
 endinterface
 
-interface InterruptSender;
-	(* always_ready *)
-	method Action resetCounter;
-	(* always_ready *)
-	method Action send;
-	(* always_ready *)
-	method ActionValue#(PciBarData) ack;
-	
+interface InterruptSender#(numeric type ports);
+	interface Vector#(ports, PulseWire) resetCounter;
+	interface Vector#(ports, PulseWire) irq;
+	interface Vector#(ports, Get#(PciBarData)) ack;
+
 	interface InterruptSenderWires wires;
 endinterface
 
-module mkInterruptSender(InterruptSender);
-	Array#(Reg#(PciBarData)) counter <- mkCRegU(2);
-	Array#(Reg#(Bool)) irqFlag <- mkCReg(2, False);
+module mkInterruptSender(InterruptSender#(ports));
+	let n = valueOf(ports);
+	Vector#(ports, Array#(Reg#(PciBarData))) counter <- replicateM(mkCRegU(2));
+	Array#(Reg#(Bool)) irqFlag <- mkCReg(2*n, False);
 
-	method Action resetCounter;
-		counter[1] <= 0;
-	endmethod
+	Vector#(ports, PulseWire) resetVec <- replicateM(mkPulseWire);
+	Vector#(ports, PulseWire) irqVec <- replicateM(mkPulseWireOR);
+	Vector#(ports, Get#(PciBarData)) ackVec;
 
-	method Action send;
-		counter[0] <= counter[0] + 1;
-		irqFlag[1] <= True;
-	endmethod
+	for (Integer i = 0; i < n; i = i + 1)
+		(* fire_when_enabled, no_implicit_conditions *)
+		rule handleReset (resetVec[i]);
+			counter[i][1] <= 0;
+		endrule
 
-	method ActionValue#(PciBarData) ack;
-		irqFlag[0] <= False;
-		return counter[0];
-	endmethod
+	for (Integer i = 0; i < n; i = i + 1)
+		(* fire_when_enabled, no_implicit_conditions *)
+		rule handleIrq (irqVec[i]);
+			counter[i][0] <= counter[i][0] + 1;
+			irqFlag[n+i] <= True;
+		endrule
+
+	for (Integer i = 0; i < n; i = i + 1)
+		ackVec[i] = (interface Get#(PciBarData);
+			method ActionValue#(PciBarData) get;
+				irqFlag[i] <= False;
+				return counter[i][0];
+			endmethod
+		endinterface);
+
+	interface resetCounter = resetVec;
+	interface irq = irqVec;
+	interface ack = ackVec;
 
 	interface InterruptSenderWires wires;
 		method Bit#(1) ins = irqFlag[0] ? 1 : 0;

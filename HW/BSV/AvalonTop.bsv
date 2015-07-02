@@ -35,7 +35,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	AvalonSlave#(PciBarAddrSize, PciBarDataSize) pcibar <- mkAvalonSlave;
 	AvalonMaster#(PciDmaAddrSize, PciDmaDataSize) pcidma <- mkAvalonMaster;
-	InterruptSender irqSender <- mkInterruptSender;
+	InterruptSender#(2) irqSender <- mkInterruptSender;
 
 
 	DualAD adc <- mkDualAD(adsclk);
@@ -45,12 +45,12 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	let adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
 	let adcFork <- mkFork(duplicate, adcMux);
 
-	ContinuousAcq continuousAcq <- mkContinuousAcq(tpl_1(adcFork));
+	ContinuousAcq continuousAcq <- mkContinuousAcq(tpl_1(adcFork), irqSender.irq[0]);
 
 	let filteredPipe <- mkChannelFilter(tpl_2(adcFork));
 	OffsetSubtractor offsetSub <- mkOffsetSubtractor(filteredPipe);
 	let winPipe <- mkWindowMaker(offsetSub.out);
-	WindowDMA winDma <- mkWindowDMA(winPipe);
+	WindowDMA winDma <- mkWindowDMA(winPipe, irqSender.irq[1]);
 
 
 	function avalonWriteReq(req) = AvalonRequest{
@@ -88,7 +88,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			case (cmd.addr) matches
 			14'd0:
 				action
-					irqSender.resetCounter;
+					irqSender.resetCounter[0].send;
 					continuousAcq.start(cmd.data);
 				endaction
 			14'd1:
@@ -104,6 +104,11 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				action
 					adcMocked <= cmd.data != 0;
 				endaction
+			14'd4:
+				action
+					irqSender.resetCounter[1].send;
+					// TODO: start winDma here
+				endaction
 			14'h1?:
 				action
 					offsetSub.setOffset(cmd.addr[3:0], truncate(cmd.data));
@@ -114,12 +119,17 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			case (cmd.addr) matches
 			14'd0:
 				action
-					let counter <- irqSender.ack;
+					let counter <- irqSender.ack[0].get;
 					pcibar.busClient.response.put(counter);
 				endaction
 			14'd2:
 				action
 					pcibar.busClient.response.put(adcMock.isBusy ? 1 : 0);
+				endaction
+			14'd4:
+				action
+					let counter <- irqSender.ack[1].get;
+					pcibar.busClient.response.put(counter);
 				endaction
 			default:
 				action
@@ -127,12 +137,6 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				endaction
 			endcase
 		endcase
-	endrule
-
-
-	(* fire_when_enabled, no_implicit_conditions *)
-	rule continuousAcqIrq (continuousAcq.levelAlert);
-		irqSender.send;
 	endrule
 
 	mkConnection(pcidma.busServer.request, toGet(dmaReqArb));

@@ -10,7 +10,7 @@ interface WindowDMA;
 	interface PipeOut#(PciDmaAddrData) dmaWriteReq;
 endinterface
 
-module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe) (WindowDMA);
+module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDMA);
 	FIFOF#(PciDmaAddrData) dmaOut <- mkFIFOF;
 
 	rule test;
@@ -18,5 +18,5 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe) (WindowDMA);
 		winPipe.deq;
 	endrule
 
-	interface PipeOut dmaWriteReq = f_FIFOF_to_PipeOut(dmaOut);
+	interface dmaWriteReq = f_FIFOF_to_PipeOut(dmaOut);
 endmodule

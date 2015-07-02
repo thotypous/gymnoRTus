@@ -87,6 +87,6 @@ module [Module] mkMockAD(MockAD)
 	method Bool isBusy = busy;
 
 	interface acq = acqOut;
-	interface PipeOut dmaReadReq = f_FIFOF_to_PipeOut(dmaReq);
-	interface Put dmaReadResp = toPut(dmaResp);
+	interface dmaReadReq = f_FIFOF_to_PipeOut(dmaReq);
+	interface dmaReadResp = toPut(dmaResp);
 endmodule
