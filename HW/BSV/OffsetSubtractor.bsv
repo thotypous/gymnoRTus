@@ -1,6 +1,7 @@
 import PAClib::*;
 import FIFOF::*;
 import BRAM::*;
+import BRAMUtils::*;
 import BUtils::*;
 import GetPut::*;
 import PipeUtils::*;
@@ -28,14 +29,6 @@ module mkOffsetSubtractor#(PipeOut#(DualAD::ChSample) acq) (OffsetSubtractor);
 	FIFOF#(ChSample) fifoOut <- mkFIFOF;
 	FIFOF#(void) pendingResp <- mkFIFOF;
 	BRAM2Port#(ChNum, DualAD::Sample) offsets <- mkBRAM2Server(defaultValue);
-
-	function makeReq(write, addr, data) =
-			BRAMRequest{
-				write: write,
-				responseOnWrite: False,
-				address: addr,
-				datain: data
-			};
 
 	rule requestOffset (!pendingResp.notEmpty);
 		offsets.portA.request.put(makeReq(False, tpl_1(acq.first), ?));

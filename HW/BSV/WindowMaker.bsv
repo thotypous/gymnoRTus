@@ -3,6 +3,7 @@ import FIFOF::*;
 import GetPut::*;
 import PipeUtils::*;
 import OffsetSubtractor::*;
+import LFilter::*;
 import SysConfig::*;
 
 typedef union tagged {
