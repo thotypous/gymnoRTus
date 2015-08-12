@@ -11,15 +11,22 @@ export DualAD(..);
 export DualADWires(..);
 export SampleBits(..);
 export Sample(..);
+export NumChannels(..);
+export ChBits(..);
 export ChNum(..);
 export ChSel(..);
 export ChSample(..);
 export mkDualAD;
 
 typedef 12 SampleBits;
+typedef 16 NumChannels;
+
 typedef Bit#(SampleBits) Sample;
-typedef Bit#(4) ChNum;
-typedef Bit#(3) ChSel;
+
+typedef TLog#(NumChannels) ChBits;
+typedef Bit#(ChBits) ChNum;
+typedef Bit#(TSub#(ChBits, 1)) ChSel;
+
 typedef Bit#(8) Byte;
 
 interface DualADWires;

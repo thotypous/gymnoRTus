@@ -17,6 +17,9 @@ ChNum enabledChannelsArray[numEnabledChannels] = {
 	4'b0011
 };
 
+ChNum firstEnabledChannel = enabledChannelsArray[0];
+ChNum lastEnabledChannel = enabledChannelsArray[numEnabledChannels-1];
+
 Vector#(NumEnabledChannels, ChNum) enabledChannels = arrayToVector(enabledChannelsArray);
 
 module mkChannelFilter#(PipeOut#(ChSample) acq) (PipeOut#(ChSample));

@@ -22,7 +22,7 @@ module mkMultiCircularBuffer(MultiCircularBuffer#(nbuf, nitems, a))
 				Alias#(Bit#(addrBits), addr)
 		);
 
-	BRAM2Port#(addr, a) bram <-mkBRAM2Server(defaultValue);
+	BRAM2Port#(addr, a) bram <- mkBRAM2Server(defaultValue);
 	Reg#(Ptr#(nitems)) headPtr <- mkReg(0);
 
 	interface Server query;
