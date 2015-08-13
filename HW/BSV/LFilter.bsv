@@ -37,7 +37,7 @@ module [Module] mkFoldedLFilter#(
 	MultiCircularBuffer#(NumChannels, na1, Coef)  outbuf <- mkMultiCircularBuffer;
 
 	Reg#(ChNum) curChannel <- mkRegU;
-	Reg#(FiltSample) outSample <- mkRegU;
+	Array#(Reg#(FiltSample)) outSample <- mkCRegU(2);
 
 	FIFOF#(Tuple2#(Coef, Coef)) multIn <- mkFIFOF;
 
@@ -48,7 +48,7 @@ module [Module] mkFoldedLFilter#(
 
 	rule multiply;
 		match {.a, .b} <- toGet(multIn).get;
-		outSample <= outSample + a*b;
+		outSample[0] <= outSample[0] + a*b;
 	endrule
 
 	function multCoef(circbuf, adapt, coef, isLast, nextOff) = action
@@ -68,7 +68,7 @@ module [Module] mkFoldedLFilter#(
 			action
 				let ch = tpl_1(pipein.first);
 				curChannel <= ch;
-				outSample <= 0;
+				outSample[1] <= 0;
 
 				inbuf.head.put(pipein.first);
 				pipein.deq;
@@ -77,32 +77,31 @@ module [Module] mkFoldedLFilter#(
 				outbuf.query.request.put(tuple2(ch, 1));
 			endaction
 
-			par
-				while (i < fromInteger(valueOf(na))) action
-					multCoef(outbuf, id, a[i], i == fromInteger(valueOf(na) - 1), i + 2);
-					i <= i + 1;
-				endaction
+			while (i < fromInteger(valueOf(na))) action
+				multCoef(outbuf, id, a[i], i == fromInteger(valueOf(na) - 1), i + 2);
+				i <= i + 1;
+			endaction
 
-				action
-					j <= 0;
-					inbuf.query.request.put(tuple2(curChannel, 0));
-				endaction
-			endpar
+			action
+				j <= 0;
+				inbuf.query.request.put(tuple2(curChannel, 0));
+			endaction
 
 			while (j < fromInteger(valueOf(nb))) action
 				multCoef(inbuf, toCoef, b[j], j == fromInteger(valueOf(nb) - 1), j + 1);
 				j <= j + 1;
 			endaction
 
-			when(!multIn.notEmpty, action
-				outbuf.head.put(tuple2(curChannel, outSample));
-				fifoOut.enq(tuple2(curChannel, outSample));
+			action
+				await(!multIn.notEmpty);
+				outbuf.head.put(tuple2(curChannel, outSample[0]));
+				fifoOut.enq(tuple2(curChannel, outSample[0]));
 
 				if (curChannel == lastEnabledChannel) begin
 					inbuf.incHead;
 					outbuf.incHead;
 				end
-			endaction);
+			endaction
 		endseq
 	endseq);
 
