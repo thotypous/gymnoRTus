@@ -10,6 +10,8 @@ import SysConfig::*;
 
 export Sample(..);
 export ChSample(..);
+export ChNum(..);
+export NumChannels(..);
 export OffsetSubtractor(..);
 export mkOffsetSubtractor;
 

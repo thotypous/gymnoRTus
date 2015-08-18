@@ -7,7 +7,6 @@ import ClientServer::*;
 import FixedPoint::*;
 import MultiCircularBuffer::*;
 import Vector::*;
-import DualAD::*;
 import OffsetSubtractor::*;
 import ChannelFilter::*;
 import SysConfig::*;
@@ -24,7 +23,7 @@ typedef Tuple2#(ChNum, FiltSample) ChFiltSample;
 module [Module] mkFoldedLFilter#(
 				Vector#(nb, Coef) b,
 				Vector#(na, Coef) a,
-				PipeOut#(OffsetSubtractor::ChSample) pipein
+				PipeOut#(ChSample) pipein
 		) (PipeOut#(ChFiltSample))
 		provisos (
 			// make bsc happy
