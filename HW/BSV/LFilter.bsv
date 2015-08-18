@@ -78,7 +78,7 @@ module [Module] mkFoldedLFilter#(
 			endaction
 
 			while (i < fromInteger(valueOf(na))) action
-				multCoef(outbuf, id, a[i], i == fromInteger(valueOf(na) - 1), i + 2);
+				multCoef(outbuf, id, -a[i], i == fromInteger(valueOf(na) - 1), i + 2);
 				i <= i + 1;
 			endaction
 
