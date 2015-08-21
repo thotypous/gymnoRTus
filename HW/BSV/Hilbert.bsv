@@ -28,8 +28,8 @@ module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (PipeOut#(ChHilbSample));
 
 	function transform_2(f, tup) = tuple2(tpl_1(tup), f(tpl_2(tup)));
 	function Int#(ri) fxptRound(FixedPoint#(ri,rf) x);
-			FixedPoint#(ri,0) rounded = fxptTruncateRound(Rnd_Plus_Inf, x);
-			return fxptGetInt(rounded);
+		FixedPoint#(ri,0) rounded = fxptTruncateRound(Rnd_Plus_Inf, x);
+		return fxptGetInt(rounded);
 	endfunction
 	let pipeImag <- mkFn_to_Pipe(transform_2(fxptRound), pipeImagFxpt);
 
@@ -45,8 +45,8 @@ module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (PipeOut#(ChHilbSample));
 		return tuple2(ci, res);
 	endactionvalue);
 
-	let pipeHilbXtended <- mkPipeTransform_2(mkPipeSqrt(1), 16, pipeHilbSq);
-	return pipeHilbXtended;
+	let pipeHilb <- mkPipeTransform_2(mkPipeSqrt(1), 16, pipeHilbSq);
+	return pipeHilb;
 endmodule
 
 
