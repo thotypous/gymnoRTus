@@ -57,11 +57,6 @@ module [Module] mkFoldedLFilter#(
 			circbuf.query.request.put(tuple2(curChannel, truncate(nextOff)));
 	endaction;
 
-	function toCoef(sample);
-		Int#(CoefISize) xs = extend(sample);
-		return fromInt(xs);
-	endfunction
-
 	mkAutoFSM(seq
 		while (True) seq
 			action
@@ -87,7 +82,7 @@ module [Module] mkFoldedLFilter#(
 			endaction
 
 			while (j < fromInteger(valueOf(nb))) action
-				multCoef(inbuf, toCoef, b[j], j == fromInteger(valueOf(nb) - 1), j + 1);
+				multCoef(inbuf, fromInt, b[j], j == fromInteger(valueOf(nb) - 1), j + 1);
 				j <= j + 1;
 			endaction
 

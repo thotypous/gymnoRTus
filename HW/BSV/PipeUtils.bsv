@@ -141,6 +141,27 @@ module [Module] mkPipeArbiter
 endmodule
 
 
+module [Module] mkPipeTransform_2#(
+			Pipe#(a, b) mkPipe,
+			Integer stages,
+			PipeOut#(Tuple2#(c, a)) pipein
+		) (PipeOut#(Tuple2#(c, b)))
+		provisos (
+			Bits#(a, sa),
+			Bits#(b, sb),
+			Bits#(c, sc)
+		);
+
+		match {.pipe1, .pipe2} <- mkFork(id, pipein);
+		let pipe1Buffered <- mkBuffer_n(stages, pipe1);
+		let pipe2Transformed <- mkPipe(pipe2);
+
+		(*hide*)
+		let m <- mkJoin(tuple2, pipe1Buffered, pipe2Transformed);
+		return m;
+endmodule
+
+
 function Vector#(1,a) vecBind(a elem) = Vector::cons(elem, Vector::nil);
 
 function a vecUnbind(Vector#(1,a) vec) = vec[0];

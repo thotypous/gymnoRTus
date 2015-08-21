@@ -30,7 +30,8 @@ module [Module] mkStreamDelayer#(Bit#(stages) dummy, PipeOut#(ChSample) pipein) 
 		end
 	endrule
 
-	(*hide*) let m <- mkPipeMux(countdown != 0 || fifoFilling.notEmpty,
+	(*hide*)
+	let m <- mkPipeMux(countdown != 0 || fifoFilling.notEmpty,
 			f_FIFOF_to_PipeOut(fifoFilling),
 			f_FIFOF_to_PipeOut(fifoIn));
 	return m;
