@@ -13,9 +13,10 @@ import LFilter::*;
 import SquareRoot::*;
 import SysConfig::*;
 
-typedef Tuple2#(ChNum, UInt#(CoefISize)) ChHilbSample;
+typedef UInt#(CoefISize) HilbSample;
+typedef Tuple2#(ChNum, HilbSample) ChHilbSample;
 
-module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (PipeOut#(ChHilbSample));
+module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (Tuple2#(PipeOut#(ChSample), PipeOut#(ChHilbSample)));
 	Real arrB[5] = {-0.127838238013738, -0.122122430298337, -0.207240989159078, -0.741109041690890,  1.329553577868309};
 	Real arrA[4] = {-0.445897866413142, -0.101209607292324, -0.047938888781208, -0.037189007185997};
 
@@ -24,6 +25,7 @@ module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (PipeOut#(ChHilbSample));
 
 	let inFork <- mkFork(duplicate, pipein);
 	let pipeReal <- mkStreamDelayer(4'd0, tpl_2(inFork));
+	match {.pipeRealInt, .pipeRealExt} <- mkFork(duplicate, pipeReal);
 	let pipeImagFxpt <- mkFoldedLFilter(b, a, tpl_1(inFork));
 
 	function transform_2(f, tup) = tuple2(tpl_1(tup), f(tpl_2(tup)));
@@ -35,7 +37,7 @@ module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (PipeOut#(ChHilbSample));
 
 	function signedSquare(x) = signedMul(x, x);
 	let pipeImagSq <- mkFn_to_Pipe_Buffered(False, transform_2(signedSquare), True, pipeImag);
-	let pipeRealSq <- mkFn_to_Pipe_Buffered(False, transform_2(signedSquare), True, pipeReal);
+	let pipeRealSq <- mkFn_to_Pipe_Buffered(False, transform_2(signedSquare), True, pipeRealInt);
 	let pipeImagRealSq <- mkJoin(tuple2, pipeImagSq, pipeRealSq);
 
 	let pipeHilbSq <- mkSource_from_fav(actionvalue
@@ -46,7 +48,7 @@ module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (PipeOut#(ChHilbSample));
 	endactionvalue);
 
 	let pipeHilb <- mkPipeTransform_2(mkPipeSqrt(1), 16, pipeHilbSq);
-	return pipeHilb;
+	return tuple2(pipeRealExt, pipeHilb);
 endmodule
 
 
