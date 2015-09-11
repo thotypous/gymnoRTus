@@ -1,5 +1,6 @@
 import PAClib::*;
 import FIFOF::*;
+import GetPut::*;
 import Vector::*;
 import GetPut::*;
 import ClientServer::*;
@@ -7,14 +8,50 @@ import Assert::*;
 import BUtils::*;
 import PipeUtils::*;
 import FixedPoint::*;
+import ChannelFilter::*;
 import OffsetSubtractor::*;
 import StreamDelayer::*;
 import LFilter::*;
 import SquareRoot::*;
 import SysConfig::*;
 
-typedef UInt#(CoefISize) HilbSample;
-typedef Tuple2#(ChNum, HilbSample) ChHilbSample;
+typedef UInt#(TAdd#(CoefISize, TLog#(NumEnabledChannels))) HilbSum;
+
+typedef union tagged {
+	ChSample ChSample;
+	HilbSum HilbSum;
+} SummerOutput deriving (Eq, Bits);
+
+module [Module] mkHilbertSummer#(PipeOut#(ChSample) pipein) (PipeOut#(SummerOutput));
+	FIFOF#(SummerOutput) fifoOut <- mkFIFOF;
+	Reg#(HilbSum) hilbSum <- mkReg(0);
+	FIFOF#(ChNum) realCh <- mkLFIFOF;
+
+	match {.pipeReal, .pipeHilb} <- mkHilbert(pipein);
+
+	(* descending_urgency = "forwardReal, sumHilb" *)
+	rule forwardReal;
+		match {.ch, .sample} <- toGet(pipeReal).get;
+		fifoOut.enq(tagged ChSample tuple2(ch, sample));
+		realCh.enq(ch);
+	endrule
+
+	rule sumHilb;
+		match {.ch, .hilb} <- toGet(pipeHilb).get;
+		let lastRealCh <- toGet(realCh).get;
+		dynamicAssert(ch == lastRealCh, "Hilbert absolute value unsynced from real signal");
+		if (ch == lastEnabledChannel) begin
+			fifoOut.enq(tagged HilbSum (hilbSum + extend(hilb)));
+			hilbSum <= 0;
+		end else begin
+			hilbSum <= hilbSum + extend(hilb);
+		end
+	endrule
+
+	return f_FIFOF_to_PipeOut(fifoOut);
+endmodule
+
+typedef Tuple2#(ChNum, UInt#(CoefISize)) ChHilbSample;
 
 module [Module] mkHilbert#(PipeOut#(ChSample) pipein) (Tuple2#(PipeOut#(ChSample), PipeOut#(ChHilbSample)));
 	Real arrB[5] = {-0.127838238013738, -0.122122430298337, -0.207240989159078, -0.741109041690890,  1.329553577868309};

@@ -8,7 +8,7 @@ typedef 8192 ContinuousAcqBufSize; // number of 64-bit words, multiple of 2
 
 typedef 4 SamplesPerDmaWord;
 
-typedef Bit#(8) WindowSize;
+typedef Bit#(9) WindowTime;
 
 
 // Derived types
