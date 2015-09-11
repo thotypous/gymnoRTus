@@ -6,7 +6,7 @@
 /BSV/*.cxx
 /BSV/*.h
 mk[A-Z]*.v
-/emu
+/mkWindowMakerEmu
 
 # Quartus II
 *.sopcinfo
