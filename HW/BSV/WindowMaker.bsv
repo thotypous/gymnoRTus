@@ -17,6 +17,7 @@ WindowTime minActivityBeforeMax = 4;
 WindowTime forceSamplesAfterMax = 35 /*38*/;
 
 typedef struct {
+	Bit#(32) timestamp;
 	WindowTime size;
 	WindowTime reference;
 } WindowInfo deriving (Eq, Bits);
@@ -24,7 +25,6 @@ typedef struct {
 typedef union tagged {
 	ChSample ChSample;
 	WindowInfo EndMarker;
-	void AbortMarker;
 } OutItem deriving (Eq, Bits);
 
 module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
@@ -37,6 +37,15 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 
 	let hilbSummer <- mkHilbertSummer(acq);
 	FIFOF#(OutItem) fifoOut <- mkFIFOF;
+
+	rule forwardSample (hilbSummer.first matches tagged ChSample .chsample);
+		fifoOut.enq(tagged ChSample chsample);
+		hilbSummer.deq;
+	endrule
+
+	rule processHilb (hilbSummer.first matches tagged HilbSum .hilb);
+		hilbSummer.deq;
+	endrule
 
 	return f_FIFOF_to_PipeOut(fifoOut);
 endmodule
