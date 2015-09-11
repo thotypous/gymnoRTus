@@ -2,6 +2,7 @@ import WindowMaker::*;
 import PAClib::*;
 import FIFOF::*;
 import GetPut::*;
+import Assert::*;
 import BUtils::*;
 import PipeUtils::*;
 import OffsetSubtractor::*;
@@ -25,10 +26,7 @@ module [Module] mkWindowMakerEmu(Empty);
 			word = zExtendLSB(b) | (word >> 8);
 		end
 		Sample sample = truncate(unpack(word));
-		if (extend(sample) != unpack(word)) begin
-			$display("Information loss in sample conversion during simulation!");
-			$finish(1);
-		end
+		dynamicAssert(extend(sample) != unpack(word), "Information loss in sample conversion during simulation!");
 		return sample;
 	endactionvalue;
 
