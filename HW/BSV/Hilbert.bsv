@@ -25,7 +25,7 @@ typedef union tagged {
 module [Module] mkHilbertSummer#(PipeOut#(ChSample) pipein) (PipeOut#(SummerOutput));
 	FIFOF#(SummerOutput) fifoOut <- mkFIFOF;
 	Reg#(HilbSum) hilbSum <- mkReg(0);
-	FIFOF#(ChNum) realCh <- mkLFIFOF;
+	FIFOF#(ChNum) realCh <- mkFIFOF;
 
 	match {.pipeReal, .pipeHilb} <- mkHilbert(pipein);
 

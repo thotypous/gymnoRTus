@@ -33,13 +33,10 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 	Reg#(WindowTime) lastActivity <- mkRegU;
 	Reg#(WindowTime) lastEnd <- mkReg(maxBound);
 	Reg#(Tuple2#(HilbSum, Maybe#(WindowTime))) maxHilbDuringActivity <- mkReg(tuple2(0, Nothing));
+	Reg#(HilbSum) lastHilb <- mkReg(0);
 
+	let hilbSummer <- mkHilbertSummer(acq);
 	FIFOF#(OutItem) fifoOut <- mkFIFOF;
-
-	rule test;
-		$display(fshow(acq.first));
-		acq.deq;
-	endrule
 
 	return f_FIFOF_to_PipeOut(fifoOut);
 endmodule
