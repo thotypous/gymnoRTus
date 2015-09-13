@@ -5,7 +5,7 @@ import Vector::*;
 
 // Choose which AD channels will be used by the fish-related signal processing pipe
 // i.e. which channels are plugged to aquarium electrodes
-typedef 7 NumEnabledChannels;
+typedef 11 NumEnabledChannels;
 Integer numEnabledChannels = valueOf(NumEnabledChannels);
 ChNum enabledChannelsArray[numEnabledChannels] = {
 	4'b0000,
@@ -14,7 +14,11 @@ ChNum enabledChannelsArray[numEnabledChannels] = {
 	4'b1001,
 	4'b0010,
 	4'b1010,
-	4'b0011
+	4'b0011,
+	4'b1011,
+	4'b0100,
+	4'b1100,
+	4'b0101
 };
 
 ChNum firstEnabledChannel = enabledChannelsArray[0];

@@ -15,7 +15,8 @@ import LFilter::*;
 import SquareRoot::*;
 import SysConfig::*;
 
-typedef UInt#(TAdd#(CoefISize, TLog#(NumEnabledChannels))) HilbSum;
+typedef TAdd#(CoefISize, TLog#(NumEnabledChannels)) HilbSumBits;
+typedef UInt#(HilbSumBits) HilbSum;
 
 typedef union tagged {
 	ChSample ChSample;

@@ -1,6 +1,7 @@
 import PAClib::*;
 import FIFOF::*;
 import GetPut::*;
+import BUtils::*;
 import PipeUtils::*;
 import OffsetSubtractor::*;
 import LFilter::*;
@@ -9,15 +10,15 @@ import SysConfig::*;
 
 HilbSum detThreshold = 205;
 HilbSum beginningLevelThreshold = 25;
-WindowTime beginningClearance = 4;
+Timestamp beginningClearance = 4;
 HilbSum activityDerivThreshold = 20;
-WindowTime activityHysteresis = 4;
-WindowTime minActivity = 12;
-WindowTime minActivityBeforeMax = 4;
-WindowTime forceSamplesAfterMax = 35 /*38*/;
+Timestamp activityHysteresis = 4;
+Timestamp minActivity = 12;
+Timestamp minActivityBeforeMax = 4;
+Timestamp forceSamplesAfterMax = 35 /*38*/;
 
 typedef struct {
-	Bit#(32) timestamp;
+	Timestamp timestamp;
 	WindowTime size;
 	WindowTime reference;
 } WindowInfo deriving (Eq, Bits);
@@ -28,11 +29,12 @@ typedef union tagged {
 } OutItem deriving (Eq, Bits);
 
 module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
-	Reg#(Maybe#(WindowTime)) beginning <- mkReg(Nothing);
-	Reg#(Maybe#(WindowTime)) activityStart <- mkReg(Nothing);
-	Reg#(WindowTime) lastActivity <- mkRegU;
-	Reg#(WindowTime) lastEnd <- mkReg(maxBound);
-	Reg#(Tuple2#(HilbSum, Maybe#(WindowTime))) maxHilbDuringActivity <- mkReg(tuple2(0, Nothing));
+	Reg#(Timestamp) ts <- mkReg(0);
+	Reg#(Maybe#(Timestamp)) beginning <- mkReg(Nothing);
+	Reg#(Maybe#(Timestamp)) activityStart <- mkReg(Nothing);
+	Reg#(Timestamp) lastActivity <- mkRegU;
+	Reg#(Timestamp) lastEnd <- mkReg(maxBound);
+	Reg#(Tuple2#(HilbSum, Maybe#(Timestamp))) maxHilbDuringActivity <- mkReg(tuple2(0, Nothing));
 	Reg#(HilbSum) lastHilb <- mkReg(0);
 
 	let hilbSummer <- mkHilbertSummer(acq);
@@ -43,8 +45,81 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 		hilbSummer.deq;
 	endrule
 
+	function HilbSum absDiff(HilbSum a, HilbSum b);
+		Int#(TAdd#(HilbSumBits,1)) diff = cExtend(a) - cExtend(b);
+		return cExtend(abs(diff));
+	endfunction
+
 	rule processHilb (hilbSummer.first matches tagged HilbSum .hilb);
+		ts <= ts + 1;
+
+		let deriv = absDiff(hilb, lastHilb);
+		lastHilb <= hilb;
 		hilbSummer.deq;
+
+		if (activityStart matches tagged Nothing) begin
+			if (hilb < beginningLevelThreshold)
+				beginning <= tagged Nothing;
+			else
+				beginning <= tagged Just ts;
+		end
+
+		if (activityStart matches tagged Nothing
+				&&& deriv >= activityDerivThreshold) begin
+			// start of activity
+			activityStart <= tagged Just ts;
+		end
+
+		if (deriv >= activityDerivThreshold) begin
+			lastActivity <= ts;
+		end
+
+		let nextMaxHilb = maxHilbDuringActivity;
+
+		if (activityStart matches tagged Just .*
+				&&& hilb >= tpl_1(maxHilbDuringActivity)) begin
+			nextMaxHilb = tuple2(hilb, tagged Just ts);
+		end
+
+		let inProtectedInterval = False;
+		let validActivity = False;
+		if (tpl_2(maxHilbDuringActivity) matches tagged Valid .maxHilbTs
+				&&& activityStart matches tagged Valid .actStart) begin
+			// criteria for gluing together EODs which are very close
+			inProtectedInterval =
+					ts - maxHilbTs <= forceSamplesAfterMax;
+			// criteria for discarding impulsive noise
+			validActivity =
+					tpl_1(maxHilbDuringActivity) >= detThreshold
+					&& ts - actStart >= minActivity
+					&& maxHilbTs - actStart >= minActivityBeforeMax;
+		end
+
+		if (tpl_2(maxHilbDuringActivity) matches tagged Valid .maxHilbTs
+				&&& activityStart matches tagged Valid .actStart
+				&&& deriv < activityDerivThreshold
+				&& ts - lastActivity > activityHysteresis) begin
+			// end of activity
+			if (validActivity && !inProtectedInterval) begin
+				// valid activity period
+				let start = max(
+						fromMaybe(actStart, beginning) - beginningClearance,
+						lastEnd);
+				lastEnd <= ts;
+				fifoOut.enq(tagged EndMarker WindowInfo{
+						timestamp: ts,
+						size: truncate(ts - start),
+						reference: truncate(ts - maxHilbTs)
+				});
+			end
+			if (!validActivity || !inProtectedInterval) begin
+				beginning <= tagged Nothing;
+				activityStart <= tagged Nothing;
+				nextMaxHilb = tuple2(0, tagged Nothing);
+			end
+		end
+
+		maxHilbDuringActivity <= nextMaxHilb;
 	endrule
 
 	return f_FIFOF_to_PipeOut(fifoOut);
