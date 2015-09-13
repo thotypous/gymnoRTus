@@ -86,23 +86,26 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 				&&& deriv < activityDerivThreshold
 				&& ts - lastActivity > activityHysteresis) begin
 			// end of activity
+			let start = max(
+					fromMaybe(actStart, beginning) - beginningClearance,
+					lastEnd);
+			let size = ts - start;
+			let chirp = size > extend(windowMaxSize);
 			// criteria for gluing together EODs which are very close
 			let inProtectedInterval =
 					ts - maxHilbTs <= forceSamplesAfterMax;
-			// criteria for discarding impulsive noise
+			// criteria for discarding impulsive noise (and chirps)
 			let validActivity =
 					tpl_1(maxHilbDuringActivity) >= detThreshold
 					&& ts - actStart >= minActivity
-					&& maxHilbTs - actStart >= minActivityBeforeMax;
+					&& maxHilbTs - actStart >= minActivityBeforeMax
+					&& !chirp;
 			if (validActivity && !inProtectedInterval) begin
 				// valid activity period
-				let start = max(
-						fromMaybe(actStart, beginning) - beginningClearance,
-						lastEnd);
 				lastEnd <= ts;
 				fifoOut.enq(tagged EndMarker WindowInfo{
 						timestamp: ts,
-						size: truncate(ts - start),
+						size: truncate(size),
 						reference: truncate(ts - maxHilbTs)
 				});
 			end
