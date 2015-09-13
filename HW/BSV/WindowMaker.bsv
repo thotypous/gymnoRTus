@@ -81,25 +81,19 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 			nextMaxHilb = tuple2(hilb, tagged Just ts);
 		end
 
-		let inProtectedInterval = False;
-		let validActivity = False;
-		if (tpl_2(maxHilbDuringActivity) matches tagged Valid .maxHilbTs
-				&&& activityStart matches tagged Valid .actStart) begin
-			// criteria for gluing together EODs which are very close
-			inProtectedInterval =
-					ts - maxHilbTs <= forceSamplesAfterMax;
-			// criteria for discarding impulsive noise
-			validActivity =
-					tpl_1(maxHilbDuringActivity) >= detThreshold
-					&& ts - actStart >= minActivity
-					&& maxHilbTs - actStart >= minActivityBeforeMax;
-		end
-
 		if (tpl_2(maxHilbDuringActivity) matches tagged Valid .maxHilbTs
 				&&& activityStart matches tagged Valid .actStart
 				&&& deriv < activityDerivThreshold
 				&& ts - lastActivity > activityHysteresis) begin
 			// end of activity
+			// criteria for gluing together EODs which are very close
+			let inProtectedInterval =
+					ts - maxHilbTs <= forceSamplesAfterMax;
+			// criteria for discarding impulsive noise
+			let validActivity =
+					tpl_1(maxHilbDuringActivity) >= detThreshold
+					&& ts - actStart >= minActivity
+					&& maxHilbTs - actStart >= minActivityBeforeMax;
 			if (validActivity && !inProtectedInterval) begin
 				// valid activity period
 				let start = max(
