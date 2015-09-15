@@ -108,6 +108,49 @@ module mkClearableUnfunnel
 endmodule
 
 
+// Based on PAClib implementation
+module mkFlushableUnfunnel
+		#(PipeOut #(Tuple2 #(Bool, Vector #(m,a)))  po_in)
+		(PipeOut #(Vector #(mk, a)))
+
+		provisos (Bits #(a, sa),
+				Add #(ignore_1, 1, mk),          // assert mk > 0
+				Add #(ignore_2, 1, m),           // assert m > 0
+				Add #(ignore_3, m, mk),          // assert m <= mk
+				Mul #(m, k, mk),                 // derive k
+				Log #(k, logk),                  // derive log(k)
+				Add #(logk, 1, logk_plus_1));    // derive log(k)+1
+
+	Vector #(k, Reg #(Vector #(m, a)))   values <- replicateM (mkRegU);
+	Array #(Reg #(UInt #(logk_plus_1)))  index  <- mkCReg (2, 0);
+
+	UInt #(logk_plus_1) k = fromInteger (valueof(k));
+
+	rule rl_receive (index[1] != k);
+		match {.flush, .value} = po_in.first ();
+		values [index[1]] <= value;
+		po_in.deq ();
+		index[1] <= flush ? k : index[1] + 1;
+	endrule
+
+	return (interface PipeOut;
+		method Vector #(mk, a) first () if (index[0] == k);
+			Vector #(k, Vector #(m,a)) ys = readVReg (values);
+			Vector #(mk, a) result = concat (ys);
+			return  result;
+		endmethod
+
+		method Action deq () if (index[0] == k);
+			index[0] <= 0;
+		endmethod
+
+		method Bool notEmpty ();
+			return (index[0] == k);
+		endmethod
+	endinterface);
+endmodule
+
+
 module [Module] mkPipeArbiter
 		#(Module#(Arbiter_IFC#(n)) mkArbiter, Vector#(n, PipeOut#(a)) inputs)
 		(PipeOut#(a))

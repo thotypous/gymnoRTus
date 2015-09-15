@@ -1,4 +1,5 @@
 import WindowMaker::*;
+import WindowDMABuffer::*;
 import PAClib::*;
 import FIFOF::*;
 import GetPut::*;
@@ -15,6 +16,7 @@ module [Module] mkWindowMakerEmu(Empty);
 	Reg#(LUInt#(NumEnabledChannels)) chIndex <- mkReg(0);
 
 	let wmaker <- mkWindowMaker(f_FIFOF_to_PipeOut(acqfifo));
+	let wbuf <- mkWindowDMABuffer(wmaker);
 
 	function ActionValue#(Sample) readSample = actionvalue
 		Bit#(16) word = 0;
@@ -36,5 +38,8 @@ module [Module] mkWindowMakerEmu(Empty);
 		chIndex <= (chIndex + 1) % fromInteger(numEnabledChannels);
 	endrule
 
-	mkSink(wmaker);
+	rule showBufOut;
+		let bufout <- toGet(wbuf).get;
+		$display(fshow(bufout));
+	endrule
 endmodule

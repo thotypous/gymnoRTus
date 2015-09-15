@@ -21,12 +21,12 @@ typedef struct {
 	Timestamp timestamp;
 	WindowTime size;
 	WindowTime reference;
-} WindowInfo deriving (Eq, Bits);
+} WindowInfo deriving (Eq, Bits, FShow);
 
 typedef union tagged {
 	ChSample ChSample;
 	WindowInfo EndMarker;
-} OutItem deriving (Eq, Bits);
+} OutItem deriving (Eq, Bits, FShow);
 
 module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 	Reg#(Timestamp) ts <- mkReg(0);
