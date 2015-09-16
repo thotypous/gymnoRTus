@@ -28,7 +28,7 @@ module [Module] mkWindowMakerEmu(Empty);
 			word = zExtendLSB(b) | (word >> 8);
 		end
 		Sample sample = truncate(unpack(word));
-		dynamicAssert(extend(sample) != unpack(word), "Information loss in sample conversion during simulation!");
+		dynamicAssert(extend(sample) == unpack(word), "Information loss in sample conversion during simulation!");
 		return sample;
 	endactionvalue;
 
