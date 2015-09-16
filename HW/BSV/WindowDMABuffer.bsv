@@ -16,7 +16,6 @@ typedef union tagged {
 	WindowInfo EndMarker;
 } DMABufItem deriving (Eq, Bits, FShow);
 
-
 typedef TDiv#(NumEnabledChannels, SamplesPerDmaWord) WordsNeededForAllChannels;
 Integer wordsNeededForAllChannels = valueOf(WordsNeededForAllChannels);
 
@@ -30,7 +29,6 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 	FIFOF#(WindowInfo) outWinInfo <- mkLFIFOF;
 	FIFOF#(void) endToken <- mkLFIFOF;
 	PipeOut#(Vector#(SamplesPerDmaWord, Sample)) unfunnel <- mkFlushableUnfunnel(f_FIFOF_to_PipeOut(inSamples));
-	Ptr unfunnelDelay = 1;
 	BRAM2Port#(Ptr, BramItem) bram <- mkBRAM2Server(defaultValue);
 	Reg#(Ptr) headPtr <- mkReg(0);
 	Reg#(Ptr) remaining <- mkReg(0);
@@ -44,7 +42,7 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 	endrule
 
 	rule gatherWinInfo (pipeIn.first matches tagged EndMarker .wininfo);
-		inWinInfoHead.enq(tuple2(wininfo, headPtr + unfunnelDelay));
+		inWinInfoHead.enq(tuple2(wininfo, headPtr));
 		pipeIn.deq;
 	endrule
 
@@ -59,7 +57,7 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 		outWinInfo.enq(wininfo);
 		Ptr winwords = fromInteger(wordsNeededForAllChannels) * extend(wininfo.size);
 		remaining <= winwords;
-		tailPtr <= headp - winwords + 1;
+		tailPtr <= headp - winwords;
 	endrule
 
 	rule reqDmaData (remaining != 0);

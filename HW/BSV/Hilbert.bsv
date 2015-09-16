@@ -30,8 +30,7 @@ module [Module] mkHilbertSummer#(PipeOut#(ChSample) pipein) (PipeOut#(SummerOutp
 
 	match {.pipeReal, .pipeHilb} <- mkHilbert(pipein);
 
-	(* descending_urgency = "forwardReal, sumHilb" *)
-	rule forwardReal;
+	rule forwardReal (!realCh.notEmpty);
 		match {.ch, .sample} <- toGet(pipeReal).get;
 		fifoOut.enq(tagged ChSample tuple2(ch, sample));
 		realCh.enq(ch);
