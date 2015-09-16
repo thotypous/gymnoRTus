@@ -33,7 +33,7 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 	Reg#(Maybe#(Timestamp)) beginning <- mkReg(Nothing);
 	Reg#(Maybe#(Timestamp)) activityStart <- mkReg(Nothing);
 	Reg#(Timestamp) lastActivity <- mkRegU;
-	Reg#(Timestamp) lastEnd <- mkReg(maxBound);
+	Reg#(Timestamp) lastEnd <- mkReg(0);
 	Reg#(Tuple2#(HilbSum, Maybe#(Timestamp))) maxHilbDuringActivity <- mkReg(tuple2(0, Nothing));
 	Reg#(HilbSum) lastHilb <- mkReg(0);
 

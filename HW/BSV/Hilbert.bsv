@@ -21,7 +21,7 @@ typedef UInt#(HilbSumBits) HilbSum;
 typedef union tagged {
 	ChSample ChSample;
 	HilbSum HilbSum;
-} SummerOutput deriving (Eq, Bits);
+} SummerOutput deriving (Eq, Bits, FShow);
 
 module [Module] mkHilbertSummer#(PipeOut#(ChSample) pipein) (PipeOut#(SummerOutput));
 	FIFOF#(SummerOutput) fifoOut <- mkFIFOF;
