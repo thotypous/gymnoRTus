@@ -26,7 +26,7 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDM
 	Reg#(Bool) running <- mkReg(False);
 	Reg#(Bool) secondBuf <- mkRegU;
 	Reg#(PciDmaAddr) baseAddr <- mkRegU;
-	Reg#(PciDmaAddr) nextAddr <- mkRegU;
+	Array#(Reg#(PciDmaAddr)) nextAddr <- mkCRegU(2);
 
 	let wbuf <- mkWindowDMABuffer(winPipe);
 
@@ -39,7 +39,7 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDM
 	endrule
 
 	rule clearIncompleteWindow (wbuf.first matches tagged EndMarker .*
-				&&& insideIncompleteWindow);
+				&&& discardDmaData);
 		wbuf.deq;
 		insideIncompleteWindow <= False;
 	endrule
@@ -47,22 +47,22 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDM
 	rule processDmaData (wbuf.first matches tagged DmaData .dmadata
 				&&& !discardDmaData);
 		wbuf.deq;
-		dmaOut.enq(tuple2(nextAddr, dmadata));
-		nextAddr <= nextAddr + 1;
+		dmaOut.enq(tuple2(nextAddr[0], dmadata));
+		nextAddr[0] <= nextAddr[0] + 1;
 	endrule
 
 	rule processEndMarker (wbuf.first matches tagged EndMarker .wininfo
-				&&& !insideIncompleteWindow && !winInfoOut.notEmpty);
+				&&& !discardDmaData && !winInfoOut.notEmpty);
 		wbuf.deq;
 		winInfoOut.enq(wininfo);
 		irq.send;
-		nextAddr <= baseAddr + (secondBuf ? 0 : fromInteger(valueOf(SingleBufWords))*dmaWordBytes);
+		nextAddr[0] <= baseAddr + (secondBuf ? 0 : fromInteger(valueOf(SingleBufWords))*dmaWordBytes);
 		secondBuf <= !secondBuf;
 	endrule
 
 	method Action start(PciDmaAddr addr);
 		baseAddr <= addr;
-		nextAddr <= addr;
+		nextAddr[1] <= addr;
 		secondBuf <= False;
 		running <= True;
 	endmethod
