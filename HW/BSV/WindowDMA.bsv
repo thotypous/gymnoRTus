@@ -48,7 +48,7 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDM
 				&&& !discardDmaData);
 		wbuf.deq;
 		dmaOut.enq(tuple2(nextAddr[0], dmadata));
-		nextAddr[0] <= nextAddr[0] + 1;
+		nextAddr[0] <= nextAddr[0] + dmaWordBytes;
 	endrule
 
 	rule processEndMarker (wbuf.first matches tagged EndMarker .wininfo
