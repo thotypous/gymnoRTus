@@ -24,7 +24,7 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDM
 
 	Reg#(Bool) insideIncompleteWindow <- mkReg(False);
 	Reg#(Bool) running <- mkReg(False);
-	Reg#(Bool) secondBuf <- mkRegU;
+	Array#(Reg#(Bool)) secondBuf <- mkCRegU(2);
 	Reg#(PciDmaAddr) baseAddr <- mkRegU;
 	Array#(Reg#(PciDmaAddr)) nextAddr <- mkCRegU(2);
 
@@ -56,14 +56,14 @@ module [Module] mkWindowDMA#(PipeOut#(OutItem) winPipe, PulseWire irq) (WindowDM
 		wbuf.deq;
 		winInfoOut.enq(wininfo);
 		irq.send;
-		nextAddr[0] <= baseAddr + (secondBuf ? 0 : fromInteger(valueOf(SingleBufWords))*dmaWordBytes);
-		secondBuf <= !secondBuf;
+		nextAddr[0] <= baseAddr + (secondBuf[0] ? 0 : fromInteger(valueOf(SingleBufWords))*dmaWordBytes);
+		secondBuf[0] <= !secondBuf[0];
 	endrule
 
 	method Action start(PciDmaAddr addr);
 		baseAddr <= addr;
 		nextAddr[1] <= addr;
-		secondBuf <= False;
+		secondBuf[1] <= False;
 		running <= True;
 	endmethod
 
