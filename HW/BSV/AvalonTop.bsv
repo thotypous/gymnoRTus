@@ -84,7 +84,6 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		(*split*)
 		case (cmd.command)
 		Write:
-			(*split*)
 			case (cmd.addr) matches
 			14'd0:
 				action
@@ -119,7 +118,6 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				endaction
 			endcase
 		Read:
-			(*split*)
 			case (cmd.addr) matches
 			14'd0:
 				action
