@@ -33,7 +33,9 @@
 #define AVALONTOP_MOCKEN  0x0c
 
 #define DMA_BITS 32
-#define DMA_BUF_WORDS (2*3*256)
+#define DMA_WORDS_REQUIRED_FOR_ALL_CH 3
+#define WIN_MAX_SIZE 256
+#define DMA_BUF_WORDS (2*DMA_WORDS_REQUIRED_FOR_ALL_CH*WIN_MAX_SIZE)
 #define DMA_BUF_SIZE (DMA_BUF_WORDS*sizeof(uint64_t))
 
 #define DMA_MOCK_WORDS 8192
@@ -66,12 +68,13 @@ static int irq_handler(unsigned irq, void *cookie_) {
 
     if (likely(irq_is_ours)) {
         const int firstIndex = (flag % 2 == 0) ? 0 : DMA_BUF_WORDS/2;
-        uint32_t regval;
-        regval = ioread32(avalontop_base + AVALONTOP_GSZREF);
+        uint32_t regval = ioread32(avalontop_base + AVALONTOP_GSZREF);
+        int size = regval & 0xffff;
         rtf_put(FIFO_DATA, (void*)&regval, sizeof(regval));
         regval = ioread32(avalontop_base + AVALONTOP_GTSDEQ);
         rtf_put(FIFO_DATA, (void*)&regval, sizeof(regval));
-        rtf_put(FIFO_DATA, (void*)&dma_ptr[firstIndex], DMA_BUF_SIZE/2);
+        rtf_put(FIFO_DATA, (void*)&dma_ptr[firstIndex],
+            size * DMA_WORDS_REQUIRED_FOR_ALL_CH * sizeof(uint64_t));
         ++epoch;
     }
 
