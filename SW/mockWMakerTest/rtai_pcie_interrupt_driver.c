@@ -48,7 +48,7 @@ static void *avalontop_base;
 
 static uint8_t n_devices = 0;
 
-static uint32_t epoch = 2;
+static uint32_t epoch = 1;
 static uint64_t *dma_ptr = NULL;
 static dma_addr_t dma_handle;
 
