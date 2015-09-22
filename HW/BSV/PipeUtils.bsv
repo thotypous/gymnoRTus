@@ -24,7 +24,7 @@ module mkPipeFilterWithSideEffect#(function ActionValue#(Bool) cond(a x), PipeOu
 		provisos (Bits#(a, sa));
 	FIFOF#(a) out <- mkFIFOF;
 
-	rule makeDecision;
+	rule makeDecision (in.notEmpty && out.notFull);
 		in.deq;
 		let condValue <- cond(in.first);
 		if (condValue)
