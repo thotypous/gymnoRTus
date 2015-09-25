@@ -3,6 +3,7 @@ import PipeUtils::*;
 import FIFOF::*;
 import SpecialFIFOs::*;
 import GetPut::*;
+import Assert::*;
 import Vector::*;
 import BRAM::*;
 import BRAMUtils::*;
@@ -24,11 +25,11 @@ typedef TMul#(2, TMul#(WordsNeededForAllChannels, WindowMaxSize)) NumBramItems;
 typedef Bit#(TLog#(NumBramItems)) Ptr;
 
 module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufItem));
-	FIFOF#(Tuple2#(Bool, Vector#(1, Sample))) inSamples <- mkBypassFIFOF;
-	FIFOF#(Tuple2#(WindowInfo, Ptr)) inWinInfoHead <- mkLFIFOF;
-	FIFOF#(WindowInfo) outWinInfo <- mkLFIFOF;
+	FIFOF#(Tuple2#(Bool, Vector#(1, Maybe#(Sample)))) fifoSamples <- mkFIFOF;
+	FIFOF#(WindowInfo) fifoWinInfo <- mkFIFOF;
+	FIFOF#(WindowInfo) outWinInfo <- mkFIFOF;
 	FIFOF#(void) endToken <- mkLFIFOF;
-	PipeOut#(Vector#(SamplesPerDmaWord, Sample)) unfunnel <- mkFlushableUnfunnel(f_FIFOF_to_PipeOut(inSamples));
+	PipeOut#(Vector#(SamplesPerDmaWord, Maybe#(Sample))) unfunnel <- mkFlushableUnfunnel(f_FIFOF_to_PipeOut(fifoSamples));
 	BRAM2Port#(Ptr, BramItem) bram <- mkBRAM2Server(defaultValue);
 	Reg#(Ptr) headPtr <- mkReg(0);
 	Reg#(Ptr) remaining <- mkReg(0);
@@ -37,27 +38,31 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 
 	rule gatherSamples (pipeIn.first matches tagged ChSample {.ch, .sample});
 		let flush = ch == lastEnabledChannel;
-		inSamples.enq(tuple2(flush, vecBind(sample)));
+		fifoSamples.enq(tuple2(flush, vecBind(tagged Just sample)));
 		pipeIn.deq;
 	endrule
 
 	rule gatherWinInfo (pipeIn.first matches tagged EndMarker .wininfo);
-		inWinInfoHead.enq(tuple2(wininfo, headPtr));
+		fifoWinInfo.enq(wininfo);
+		fifoSamples.enq(tuple2(True, vecBind(tagged Nothing)));
 		pipeIn.deq;
 	endrule
 
-	rule bufferize;
-		let vec <- toGet(unfunnel).get;
+	rule bufferize (unfunnel.first[0] matches tagged Just .*);
+		unfunnel.deq;
+		dynamicAssert(Vector::all(isValid, unfunnel.first), "All entries should be valid");
+		let vec = map(fromMaybe(0), unfunnel.first);
 		bram.portA.request.put(makeReq(True, headPtr, vec));
 		headPtr <= headPtr + 1;
 	endrule
 
-	rule startOut (remaining == 0);
-		match {.wininfo, .headp} <- toGet(inWinInfoHead).get;
+	rule startOut (unfunnel.first[0] matches tagged Nothing &&& remaining == 0);
+		unfunnel.deq;
+		let wininfo <- toGet(fifoWinInfo).get;
 		outWinInfo.enq(wininfo);
 		Ptr winwords = fromInteger(wordsNeededForAllChannels) * extend(wininfo.size);
 		remaining <= winwords;
-		tailPtr <= headp - winwords;
+		tailPtr <= headPtr - winwords;
 	endrule
 
 	rule reqDmaData (remaining != 0);
@@ -66,7 +71,7 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 		remaining <= remaining - 1;
 	endrule
 
-	rule sendDmaData;
+	rule sendDmaData (!endToken.notEmpty);
 		let vec <- bram.portB.response.get;
 		fifoOut.enq(tagged DmaData pack(map(extend, vec)));
 		if (remaining == 0)
