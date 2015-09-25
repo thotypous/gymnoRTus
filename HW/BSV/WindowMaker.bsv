@@ -32,6 +32,7 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 	Reg#(Timestamp) ts <- mkReg(0);
 	Reg#(Maybe#(Timestamp)) beginning <- mkReg(Nothing);
 	Reg#(Maybe#(Timestamp)) activityStart <- mkReg(Nothing);
+	Reg#(Timestamp) start <- mkReg(0);
 	Reg#(Timestamp) lastActivity <- mkRegU;
 	Reg#(Timestamp) lastEnd <- mkReg(0);
 	Reg#(Tuple2#(HilbSum, Maybe#(Timestamp))) maxHilbDuringActivity <- mkReg(tuple2(0, Nothing));
@@ -81,14 +82,18 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 			nextMaxHilb = tuple2(hilb, tagged Just ts);
 		end
 
+		// pre-calc start for next cycle, to shorten combinational path
+		if (activityStart matches tagged Valid .actStart) begin
+			start <= max(
+					fromMaybe(actStart, beginning) - beginningClearance,
+					lastEnd);
+		end
+
 		if (tpl_2(maxHilbDuringActivity) matches tagged Valid .maxHilbTs
 				&&& activityStart matches tagged Valid .actStart
 				&&& deriv < activityDerivThreshold
 				&& ts - lastActivity > activityHysteresis) begin
 			// end of activity
-			let start = max(
-					fromMaybe(actStart, beginning) - beginningClearance,
-					lastEnd);
 			let size = ts - start;
 			let chirp = size > extend(windowMaxSize);
 			// criteria for gluing together EODs which are very close
