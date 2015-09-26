@@ -1,7 +1,6 @@
 import PAClib::*;
 import PipeUtils::*;
 import FIFOF::*;
-import SpecialFIFOs::*;
 import GetPut::*;
 import Assert::*;
 import Vector::*;
@@ -28,6 +27,7 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 	FIFOF#(Tuple2#(Bool, Vector#(1, Maybe#(Sample)))) fifoSamples <- mkFIFOF;
 	FIFOF#(WindowInfo) fifoWinInfo <- mkFIFOF;
 	FIFOF#(WindowInfo) outWinInfo <- mkFIFOF;
+	FIFOF#(Bool) isLast <- mkLFIFOF;
 	FIFOF#(void) endToken <- mkLFIFOF;
 	PipeOut#(Vector#(SamplesPerDmaWord, Maybe#(Sample))) unfunnel <- mkFlushableUnfunnel(f_FIFOF_to_PipeOut(fifoSamples));
 	BRAM2Port#(Ptr, BramItem) bram <- mkBRAM2Server(defaultValue);
@@ -67,14 +67,16 @@ module [Module] mkWindowDMABuffer#(PipeOut#(OutItem) pipeIn) (PipeOut#(DMABufIte
 
 	rule reqDmaData (remaining != 0);
 		bram.portB.request.put(makeReq(False, tailPtr, ?));
+		isLast.enq(remaining == 1);
 		tailPtr <= tailPtr + 1;
 		remaining <= remaining - 1;
 	endrule
 
 	rule sendDmaData (!endToken.notEmpty);
 		let vec <- bram.portB.response.get;
+		let last <- toGet(isLast).get;
 		fifoOut.enq(tagged DmaData pack(map(extend, vec)));
-		if (remaining == 0)
+		if (last)
 			endToken.enq(?);
 	endrule
 
