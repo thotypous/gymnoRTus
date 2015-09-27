@@ -67,7 +67,7 @@ static int irq_handler(unsigned irq, void *cookie_) {
     rt_printk("pcie_interrupt_driver: got IRQ, flag=%d, is_ours=%d.\n", flag, irq_is_ours);
 
     if (likely(irq_is_ours)) {
-        const int firstIndex = (flag % 2 == 0) ? 0 : DMA_BUF_WORDS/2;
+        const int firstIndex = (flag % 2 == 1) ? 0 : DMA_BUF_WORDS/2;
         uint32_t regval = ioread32(avalontop_base + AVALONTOP_GSZREF);
         int size = regval & 0xffff;
         rtf_put(FIFO_DATA, (void*)&regval, sizeof(regval));
@@ -210,8 +210,7 @@ static int fifo_mock_handler (unsigned int fifo) {
 
     mock_amount_read -= DMA_MOCK_SIZE;
 
-    while (ioread32(avalontop_base + AVALONTOP_MOCKBSY))
-        rt_printk("pcie_interrupt_driver: waiting mock busy signal to cease\n");
+    while (ioread32(avalontop_base + AVALONTOP_MOCKBSY));
 
     rt_printk("pcie_interrupt_driver: signaling to DMA controller that mock block is ready.\n");
     iowrite32(mock_handle, avalontop_base + AVALONTOP_DOMOCK);
