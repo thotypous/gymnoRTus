@@ -165,7 +165,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     // Set offsets
     rt_printk("pcie_interrupt_driver: setting up OffsetSubtractor\n");
     for (i = 0; i < ARRAY_SIZE(offsetArray); i++) {
-        rt_printk("pcie_interrupt_driver: offsetArray[%d] = 0x%03x;\n", i, offsetArray[i]);
+        rt_printk("pcie_interrupt_driver: offsetArray[%d] = 0x%03x\n", i, offsetArray[i]);
         iowrite32(offsetArray[i], avalontop_base + AVALONTOP_SETOFF + 4*i);
     }
 
@@ -197,6 +197,9 @@ static void pci_remove(struct pci_dev *dev) {
 }
 
 static int fifo_mock_handler (unsigned int fifo) {
+    rt_printk("pcie_interrupt_driver: waiting MockDMA to be ready.\n");
+    while (ioread32(avalontop_base + AVALONTOP_MOCKBSY));
+
     rt_printk("pcie_interrupt_driver: reading block from mock FIFO.\n");
     mock_amount_read += rtf_get(fifo, mock_ptr, DMA_MOCK_SIZE - mock_amount_read);
 
@@ -209,8 +212,6 @@ static int fifo_mock_handler (unsigned int fifo) {
     }
 
     mock_amount_read -= DMA_MOCK_SIZE;
-
-    while (ioread32(avalontop_base + AVALONTOP_MOCKBSY));
 
     rt_printk("pcie_interrupt_driver: signaling to DMA controller that mock block is ready.\n");
     iowrite32(mock_handle, avalontop_base + AVALONTOP_DOMOCK);

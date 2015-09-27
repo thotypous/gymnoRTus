@@ -171,6 +171,9 @@ static void pci_remove(struct pci_dev *dev) {
 }
 
 static int fifo_mock_handler (unsigned int fifo) {
+    rt_printk("pcie_interrupt_driver: waiting MockDMA to be ready.\n");
+    while (ioread32(avalontop_base + AVALONTOP_MOCKBSY));
+
     rt_printk("pcie_interrupt_driver: reading block from mock FIFO.\n");
     mock_amount_read += rtf_get(fifo, mock_ptr, DMA_MOCK_SIZE - mock_amount_read);
 
@@ -183,9 +186,6 @@ static int fifo_mock_handler (unsigned int fifo) {
     }
 
     mock_amount_read -= DMA_MOCK_SIZE;
-
-    while (ioread32(avalontop_base + AVALONTOP_MOCKBSY))
-        rt_printk("pcie_interrupt_driver: waiting mock busy signal to cease\n");
 
     rt_printk("pcie_interrupt_driver: signaling to DMA controller that mock block is ready.\n");
     iowrite32(mock_handle, avalontop_base + AVALONTOP_DOMOCK);
