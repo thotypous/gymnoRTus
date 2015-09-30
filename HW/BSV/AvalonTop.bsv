@@ -9,6 +9,7 @@ import ChannelFilter::*;
 import WindowMaker::*;
 import WindowDMA::*;
 import LowpassHaar::*;
+import DistMinimizer::*;
 import PipeUtils::*;
 import MonadUtils::*;
 import SysConfig::*;
@@ -54,7 +55,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	let winFork <- mkFork(duplicate, winPipe);
 	let winDma <- mkWindowDMA(tpl_1(winFork), irqSender.irq[1]);
 	let winHaar <- mkLowpassHaar(tpl_2(winFork));
-	mkSink(winHaar);
+	let distMin <- mkDistMinimizer(winHaar);
 
 
 	function avalonWriteReq(req) = AvalonRequest{
