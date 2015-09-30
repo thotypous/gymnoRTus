@@ -8,6 +8,7 @@ import OffsetSubtractor::*;
 import ChannelFilter::*;
 import WindowMaker::*;
 import WindowDMA::*;
+import LowpassHaar::*;
 import PipeUtils::*;
 import MonadUtils::*;
 import SysConfig::*;
@@ -38,19 +39,22 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	InterruptSender#(2) irqSender <- mkInterruptSender;
 
 
-	DualAD adc <- mkDualAD(adsclk);
-	MockAD adcMock <- mkMockAD;
+	let adc <- mkDualAD(adsclk);
+	let adcMock <- mkMockAD;
 
-	Reg#(Bool) adcMocked <- mkReg(False);
+	Reg#(Bool) adcMocked <- mkReg(True);
 	let adcMux <- mkPipeMux(adcMocked, adcMock.acq, adc.acq);
 	let adcFork <- mkFork(duplicate, adcMux);
 
-	ContinuousAcq continuousAcq <- mkContinuousAcq(tpl_1(adcFork), irqSender.irq[0]);
+	let continuousAcq <- mkContinuousAcq(tpl_1(adcFork), irqSender.irq[0]);
 
 	let filteredPipe <- mkChannelFilter(tpl_2(adcFork));
-	OffsetSubtractor offsetSub <- mkOffsetSubtractor(filteredPipe);
+	let offsetSub <- mkOffsetSubtractor(filteredPipe);
 	let winPipe <- mkWindowMaker(offsetSub.out);
-	WindowDMA winDma <- mkWindowDMA(winPipe, irqSender.irq[1]);
+	let winFork <- mkFork(duplicate, winPipe);
+	let winDma <- mkWindowDMA(tpl_1(winFork), irqSender.irq[1]);
+	let winHaar <- mkLowpassHaar(tpl_2(winFork));
+	mkSink(winHaar);
 
 
 	function avalonWriteReq(req) = AvalonRequest{

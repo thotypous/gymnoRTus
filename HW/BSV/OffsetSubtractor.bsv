@@ -9,6 +9,7 @@ import DualAD::*;
 import SysConfig::*;
 
 export Sample(..);
+export SampleBits(..);
 export ChSample(..);
 export ChNum(..);
 export NumChannels(..);
