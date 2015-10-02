@@ -1,5 +1,6 @@
 import PAClib::*;
 import FIFOF::*;
+import BRAMFIFO::*;
 import GetPut::*;
 import Connectable::*;
 import Vector::*;
@@ -13,7 +14,7 @@ import SysConfig::*;
 import JtagGetPut::*;
 import AltSourceProbe::*;
 
-// Correction for signal after decimation
+// Correction for signal after decimation (LowpassHaar)
 typedef TDiv#(SysConfig::WindowMaxSize, 2) WindowMaxSize;
 WindowTime windowMaxSize = fromInteger(valueOf(WindowMaxSize));
 
@@ -27,23 +28,28 @@ typedef Bit#(SingleChSumBits) SingleChSum;
 typedef TAdd#(SingleChSumBits, TLog#(NumEnabledChannels)) FinalSumBits;
 typedef Bit#(FinalSumBits) FinalSum;
 
-typedef Tuple2#(CycleCount, FinalSum) Result;
-
 typedef enum {
-	Discard = 0,
-	CopyA = 1,
-	CopyB = 2
-} CurWinFeedback deriving(Eq, Bits);
+	Both = 0,
+	OnlyA = 1,
+	OnlyB = 2
+} SpikesInWin deriving(Eq, Bits);
+
+typedef struct {
+	SpikesInWin spk;
+	CycleCount cycles;
+	FinalSum sum;
+} Result deriving (Eq, Bits);
+
 
 interface DistMinimizer;
 	//interface PipeOut#(Result) result;
-	//interface Put#(CurWinFeedback) feedback;
+	//interface Put#(SpikesInWin) feedback;
 endinterface
 
 module [Module] mkDistMinimizer#(PipeOut#(OutItem) winPipe) (DistMinimizer);
 	FIFOF#(SingleChItem) fifo <- mkFIFOF;
 	let singleCh <- mkSingleChDistMinimizer(f_FIFOF_to_PipeOut(fifo));
-	Get#(CurWinFeedback) feedback <- mkJtagGet("FDBK", mkFIFOF);
+	Get#(SpikesInWin) feedback <- mkJtagGet("FDBK", mkFIFOF);
 	AltSourceProbe#(void, SingleChSum) result <- mkAltSourceDProbe("RES", ?, singleCh.sum);
 
 	mkConnection(feedback, singleCh.feedback);
@@ -59,9 +65,10 @@ module [Module] mkDistMinimizer#(PipeOut#(OutItem) winPipe) (DistMinimizer);
 	endrule
 endmodule
 
+
 interface SingleChDistMinimizer;
 	method SingleChSum sum;
-	interface Put#(CurWinFeedback) feedback;
+	interface Put#(SpikesInWin) feedback;
 endinterface
 
 typedef union tagged {
@@ -70,7 +77,6 @@ typedef union tagged {
 } SingleChItem deriving (Eq, Bits, FShow);
 
 typedef Int#(TAdd#(SampleBits,1)) SampleDiff;
-
 typedef Vector#(WindowMaxSize, Reg#(Sample)) RegVec;
 
 module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (SingleChDistMinimizer);
@@ -82,10 +88,12 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	AdderN#(WindowMaxSize, SampleBits) adderTree <- mkAdderN(readVReg(firstLevel));
 
 	Reg#(Maybe#(WindowTime)) remainingFill <- mkReg(tagged Invalid);
-	Reg#(WindowTime) remainingFeedback <- mkRegU;
 	Reg#(CycleCount) remainingRotations <- mkReg(0);
 	Reg#(WindowTime) stepsLeftForInnerRotation <- mkRegU;
-	FIFOF#(CurWinFeedback) feedbackIn <- mkFIFOF;
+
+	FIFOF#(Sample) segmFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
+
+	FIFOF#(SpikesInWin) feedbackIn <- mkFIFOF;
 	FIFOF#(void) feedbackPending <- mkFIFOF;
 
 	function Action shiftRegVec(RegVec regVec, Sample in) = action
@@ -98,6 +106,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	rule consumeSample (winPipe.first matches tagged Sample .sample
 			&&& !feedbackPending.notEmpty);
 		shiftRegVec(segment, sample);
+		segmFifo.enq(sample);
 		winPipe.deq;
 	endrule
 
@@ -115,6 +124,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 			&&  !feedbackPending.notEmpty);
 		remainingFill <= tagged Valid (rem - 1);
 		shiftRegVec(segment, 0);
+		segmFifo.enq(0);
 	endrule
 
 	(* fire_when_enabled *)
@@ -125,7 +135,6 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 			&&  !feedbackPending.notEmpty);
 		remainingFill <= tagged Invalid;
 		remainingRotations <= maxCycles;
-		remainingFeedback <= windowMaxSize;
 		stepsLeftForInnerRotation <= windowMaxSize - 1;
 		feedbackPending.enq(?);
 		winPipe.deq;
@@ -145,31 +154,30 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 
 	(* fire_when_enabled, no_implicit_conditions *)
 	rule calcFirstLevel;
-		for (Integer i = 1; i < valueOf(WindowMaxSize); i = i + 1) begin
+		for (Integer i = 0; i < valueOf(WindowMaxSize); i = i + 1) begin
 			Sample spikeSum = boundedPlus(spikeA[i], spikeB[i]);
 			SampleDiff diff = cExtend(segment[i]) - cExtend(spikeSum);
 			firstLevel[i] <= truncate(pack(abs(diff)));
 		end
 	endrule
 
-	let feedbackCopyRunning = feedbackIn.first != Discard && remainingFeedback != 0;
+	(* fire_when_enabled *)
+	rule feedbackCopy (remainingRotations == 0
+			&& feedbackPending.notEmpty
+			&& segmFifo.notEmpty);
+		if (feedbackIn.first == OnlyA)
+			shiftRegVec(spikeA, segmFifo.first);
+		if (feedbackIn.first == OnlyB)
+			shiftRegVec(spikeB, segmFifo.first);
+		segmFifo.deq;
+	endrule
 
 	(* fire_when_enabled *)
 	rule feedbackDone (remainingRotations == 0
 			&& feedbackPending.notEmpty
-			&& !feedbackCopyRunning);
+			&& !segmFifo.notEmpty);
 		feedbackPending.deq;
 		feedbackIn.deq;
-	endrule
-
-	(* fire_when_enabled *)
-	rule feedbackCopy (remainingRotations == 0
-			&& feedbackPending.notEmpty
-			&& feedbackCopyRunning);
-		shiftRegVec(feedbackIn.first == CopyA ? spikeA : spikeB,
-				segment[windowMaxSize-1]);
-		shiftRegVec(segment, ?);
-		remainingFeedback <= remainingFeedback - 1;
 	endrule
 
 	interface feedback = toPut(feedbackIn);
