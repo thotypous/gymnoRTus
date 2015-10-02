@@ -1,6 +1,7 @@
 import PAClib::*;
 import FIFOF::*;
 import GetPut::*;
+import Connectable::*;
 import Vector::*;
 import BUtils::*;
 import ChannelFilter::*;
@@ -8,6 +9,9 @@ import OffsetSubtractor::*;
 import LowpassHaar::*;
 import AdderTree::*;
 import SysConfig::*;
+
+import JtagGetPut::*;
+import AltSourceProbe::*;
 
 // Correction for signal after decimation
 typedef TDiv#(SysConfig::WindowMaxSize, 2) WindowMaxSize;
@@ -32,14 +36,27 @@ typedef enum {
 } CurWinFeedback deriving(Eq, Bits);
 
 interface DistMinimizer;
-	interface PipeOut#(Result) result;
-	interface Put#(CurWinFeedback) feedback;
+	//interface PipeOut#(Result) result;
+	//interface Put#(CurWinFeedback) feedback;
 endinterface
 
 module [Module] mkDistMinimizer#(PipeOut#(OutItem) winPipe) (DistMinimizer);
 	FIFOF#(SingleChItem) fifo <- mkFIFOF;
 	let singleCh <- mkSingleChDistMinimizer(f_FIFOF_to_PipeOut(fifo));
-	mkSink(winPipe);
+	Get#(CurWinFeedback) feedback <- mkJtagGet("FDBK", mkFIFOF);
+	AltSourceProbe#(void, SingleChSum) result <- mkAltSourceDProbe("RES", ?, singleCh.sum);
+
+	mkConnection(feedback, singleCh.feedback);
+
+	rule readCh0samp (winPipe.first matches tagged ChSample {0, .sample});
+		fifo.enq(tagged Sample sample);
+		winPipe.deq;
+	endrule
+
+	rule readCh0end (winPipe.first matches tagged EndMarker .size);
+		fifo.enq(tagged EndMarker size);
+		winPipe.deq;
+	endrule
 endmodule
 
 interface SingleChDistMinimizer;
@@ -51,6 +68,8 @@ typedef union tagged {
 	Sample Sample;
 	WindowTime EndMarker;
 } SingleChItem deriving (Eq, Bits, FShow);
+
+typedef Int#(TAdd#(SampleBits,1)) SampleDiff;
 
 typedef Vector#(WindowMaxSize, Reg#(Sample)) RegVec;
 
@@ -122,6 +141,15 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 			stepsLeftForInnerRotation <= stepsLeftForInnerRotation - 1;
 		end
 		remainingRotations <= remainingRotations - 1;
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule calcFirstLevel;
+		for (Integer i = 1; i < valueOf(WindowMaxSize); i = i + 1) begin
+			Sample spikeSum = boundedPlus(spikeA[i], spikeB[i]);
+			SampleDiff diff = cExtend(segment[i]) - cExtend(spikeSum);
+			firstLevel[i] <= truncate(pack(abs(diff)));
+		end
 	endrule
 
 	let feedbackCopyRunning = feedbackIn.first != Discard && remainingFeedback != 0;
