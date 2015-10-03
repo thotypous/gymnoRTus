@@ -32,13 +32,13 @@ typedef enum {
 	Both = 0,
 	OnlyA = 1,
 	OnlyB = 2
-} SpikesInWin deriving(Eq, Bits);
+} SpikesInWin deriving(Eq, Bits, FShow);
 
 typedef struct {
 	SpikesInWin spk;
 	CycleCount cycles;
 	FinalSum sum;
-} Result deriving (Eq, Bits);
+} Result deriving (Eq, Bits, FShow);
 
 
 interface DistMinimizer;
@@ -76,6 +76,17 @@ typedef union tagged {
 	WindowTime EndMarker;
 } SingleChItem deriving (Eq, Bits, FShow);
 
+typedef enum {
+	FillSegment,
+	RotateBoth,
+	CleanB,
+	RotateA,
+	RestoreBCleanA,
+	RotateB,
+	RestoreA,
+	FeedbackCopy
+} State deriving (Eq, Bits, FShow);
+
 typedef Int#(TAdd#(SampleBits,1)) SampleDiff;
 typedef Vector#(WindowMaxSize, Reg#(Sample)) RegVec;
 
@@ -87,14 +98,17 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	Vector#(WindowMaxSize, Reg#(Bit#(SampleBits))) firstLevel <- Vector::replicateM(mkRegU);
 	AdderN#(WindowMaxSize, SampleBits) adderTree <- mkAdderN(readVReg(firstLevel));
 
+	FIFOF#(Sample) spkAFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
+	FIFOF#(Sample) spkBFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
+	FIFOF#(Sample) segmFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
+
+	Reg#(State) state <- mkReg(FillSegment);
+
 	Reg#(Maybe#(WindowTime)) remainingFill <- mkReg(tagged Invalid);
 	Reg#(CycleCount) remainingRotations <- mkReg(0);
 	Reg#(WindowTime) stepsLeftForInnerRotation <- mkRegU;
 
-	FIFOF#(Sample) segmFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
-
 	FIFOF#(SpikesInWin) feedbackIn <- mkFIFOF;
-	FIFOF#(void) feedbackPending <- mkFIFOF;
 
 	function Action shiftRegVec(RegVec regVec, Sample in) = action
 		select(regVec, 0) <= in;
@@ -102,9 +116,21 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 			select(regVec, i) <= select(regVec, i - 1)._read;
 	endaction;
 
+	function Action rotateRegVec(RegVec regVec) = shiftRegVec(regVec, regVec[windowMaxSize-1]);
+
+	function Action cleanRegVec(RegVec regVec, FIFOF#(Sample) bkpFifo) = action
+		bkpFifo.enq(regVec[windowMaxSize-1]);
+		shiftRegVec(regVec, 0);
+	endaction;
+
+	function Action restoreRegVec(RegVec regVec, FIFOF#(Sample) bkpFifo) = action
+		shiftRegVec(regVec, bkpFifo.first);
+		bkpFifo.deq;
+	endaction;
+
 	(* fire_when_enabled *)
 	rule consumeSample (winPipe.first matches tagged Sample .sample
-			&&& !feedbackPending.notEmpty);
+			&&& state == FillSegment);
 		shiftRegVec(segment, sample);
 		segmFifo.enq(sample);
 		winPipe.deq;
@@ -113,7 +139,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	(* fire_when_enabled *)
 	rule setupFilling (winPipe.first matches tagged EndMarker .size
 			&&& remainingFill matches tagged Invalid
-			&&& !feedbackPending.notEmpty);
+			&&& state == FillSegment);
 		remainingFill <= tagged Valid (windowMaxSize - size);
 	endrule
 
@@ -121,7 +147,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	rule doFilling (winPipe.first matches tagged EndMarker .*
 			&&& remainingFill matches tagged Valid .rem
 			&&& rem != 0
-			&&  !feedbackPending.notEmpty);
+			&&  state == FillSegment);
 		remainingFill <= tagged Valid (rem - 1);
 		shiftRegVec(segment, 0);
 		segmFifo.enq(0);
@@ -131,25 +157,113 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	rule finishFilling (winPipe.first matches tagged EndMarker .*
 			&&& remainingFill matches tagged Valid .rem
 			&&& rem == 0
-			&&  remainingRotations == 0
-			&&  !feedbackPending.notEmpty);
+			&&  state == FillSegment);
 		remainingFill <= tagged Invalid;
 		remainingRotations <= maxCycles;
+		state <= RotateBoth;
 		stepsLeftForInnerRotation <= windowMaxSize - 1;
-		feedbackPending.enq(?);
 		winPipe.deq;
 	endrule
 
 	(* fire_when_enabled, no_implicit_conditions *)
-	rule rotateSpikes (remainingRotations != 0);
-		shiftRegVec(spikeA, spikeA[windowMaxSize-1]);
+	rule rotateBoth (state == RotateBoth
+			&& remainingRotations != 0);
+		rotateRegVec(spikeA);
 		if (stepsLeftForInnerRotation == 0) begin
-			shiftRegVec(spikeB, spikeB[windowMaxSize-1]);
+			rotateRegVec(spikeB);
 			stepsLeftForInnerRotation <= windowMaxSize - 1;
 		end else begin
 			stepsLeftForInnerRotation <= stepsLeftForInnerRotation - 1;
 		end
 		remainingRotations <= remainingRotations - 1;
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule rotateBothFinish (state == RotateBoth
+			&& remainingRotations == 0);
+		state <= CleanB;
+	endrule
+
+	(* fire_when_enabled *)
+	rule cleanB (state == CleanB
+			&& spkBFifo.notFull);
+		cleanRegVec(spikeB, spkBFifo);
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule cleanBFinish (state == CleanB
+			&& !spkBFifo.notFull);
+		remainingRotations <= extend(windowMaxSize);
+		state <= RotateA;
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule rotateA (state == RotateA
+			&& remainingRotations != 0);
+		rotateRegVec(spikeA);
+		remainingRotations <= remainingRotations - 1;
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule rotateAFinish (state == RotateA
+			&& remainingRotations == 0);
+		state <= RestoreBCleanA;
+	endrule
+
+	(* fire_when_enabled *)
+	rule restoreBcleanA (state == RestoreBCleanA
+			&& spkAFifo.notFull);
+		restoreRegVec(spikeB, spkBFifo);
+		cleanRegVec(spikeA, spkAFifo);
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule restoreBcleanAFinish (state == RestoreBCleanA
+			&& !spkAFifo.notFull);
+		remainingRotations <= extend(windowMaxSize);
+		state <= RotateB;
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule rotateB (state == RotateB
+			&& remainingRotations != 0);
+		rotateRegVec(spikeB);
+		remainingRotations <= remainingRotations - 1;
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule rotateBFinish (state == RotateB
+			&& remainingRotations == 0);
+		state <= RestoreA;
+	endrule
+
+	(* fire_when_enabled *)
+	rule restoreA (state == RestoreA
+			&& spkAFifo.notEmpty);
+		restoreRegVec(spikeA, spkAFifo);
+	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule restoreAFinish (state == RestoreA
+			&& !spkAFifo.notEmpty);
+		state <= FeedbackCopy;
+	endrule
+
+	(* fire_when_enabled *)
+	rule feedbackCopy (state == FeedbackCopy
+			&& segmFifo.notEmpty);
+		case (feedbackIn.first) matches
+			OnlyA: shiftRegVec(spikeA, segmFifo.first);
+			OnlyB: shiftRegVec(spikeB, segmFifo.first);
+		endcase
+		segmFifo.deq;
+	endrule
+
+	(* fire_when_enabled *)
+	rule feedbackDone (state == FeedbackCopy
+			&& !segmFifo.notEmpty);
+		feedbackIn.deq;
+		state <= FillSegment;
 	endrule
 
 	(* fire_when_enabled, no_implicit_conditions *)
@@ -159,25 +273,6 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 			SampleDiff diff = cExtend(segment[i]) - cExtend(spikeSum);
 			firstLevel[i] <= truncate(pack(abs(diff)));
 		end
-	endrule
-
-	(* fire_when_enabled *)
-	rule feedbackCopy (remainingRotations == 0
-			&& feedbackPending.notEmpty
-			&& segmFifo.notEmpty);
-		if (feedbackIn.first == OnlyA)
-			shiftRegVec(spikeA, segmFifo.first);
-		if (feedbackIn.first == OnlyB)
-			shiftRegVec(spikeB, segmFifo.first);
-		segmFifo.deq;
-	endrule
-
-	(* fire_when_enabled *)
-	rule feedbackDone (remainingRotations == 0
-			&& feedbackPending.notEmpty
-			&& !segmFifo.notEmpty);
-		feedbackPending.deq;
-		feedbackIn.deq;
 	endrule
 
 	interface feedback = toPut(feedbackIn);
