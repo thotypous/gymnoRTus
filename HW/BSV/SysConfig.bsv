@@ -11,6 +11,10 @@ typedef 4 SamplesPerDmaWord;
 typedef 256 WindowMaxSize;
 typedef Bit#(28) Timestamp;
 
+// number of samples sufficient to hold the
+// signal for a little more than 1 ms
+Integer oneMsBufSize = 1024;
+
 
 // Derived types
 

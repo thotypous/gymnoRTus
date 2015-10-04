@@ -1,7 +1,12 @@
 QUARTUS_ROOTDIR ?= /opt/altera/14.1/quartus
 BLUESPECHOME ?= /opt/bluespec/Bluespec-2014.07.A
 
-BSCFLAGS=-check-assert -aggressive-conditions -opt-undetermined-vals -unspecified-to X -suppress-warnings G0046
+BSCFLAGS=-check-assert \
+	-aggressive-conditions \
+	-steps-warn-interval 2000000 -steps-max-intervals 6000000 \
+	+RTS -K33554432 -RTS \
+	-opt-undetermined-vals -unspecified-to X \
+	-suppress-warnings G0046
 BSCLIBS=altsourceprobe
 
 all: output_files/de4_pcie.sof

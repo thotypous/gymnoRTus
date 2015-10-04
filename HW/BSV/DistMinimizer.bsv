@@ -5,6 +5,7 @@ import GetPut::*;
 import Connectable::*;
 import Vector::*;
 import BUtils::*;
+import Assert::*;
 import ChannelFilter::*;
 import OffsetSubtractor::*;
 import LowpassHaar::*;
@@ -46,22 +47,43 @@ interface DistMinimizer;
 	//interface Put#(SpikesInWin) feedback;
 endinterface
 
-module [Module] mkDistMinimizer#(PipeOut#(OutItem) winPipe) (DistMinimizer);
-	FIFOF#(SingleChItem) fifo <- mkFIFOF;
-	let singleCh <- mkSingleChDistMinimizer(f_FIFOF_to_PipeOut(fifo));
+module [Module] mkDistMinimizer#(PipeOut#(OutItem) inPipe) (DistMinimizer);
+	FIFOF#(OutItem) inFifo <- mkSizedBRAMFIFOF(oneMsBufSize);
+
+	Vector#(NumEnabledChannels, FIFOF#(SingleChItem)) singleChFifo
+			<- replicateM(mkFIFOF);
+	Vector#(NumEnabledChannels, SingleChDistMinimizer) singleChDMin
+			<- mapM(mkSingleChDistMinimizer, map(f_FIFOF_to_PipeOut, singleChFifo));
+
+	function SingleChSum getSum(SingleChDistMinimizer ifc) = ifc.sum;
+	AdderN#(16, SingleChSumBits) adderTree <- mkAdderN(append(map(getSum, singleChDMin), replicate(0)));
+
 	Get#(SpikesInWin) feedback <- mkJtagGet("FDBK", mkFIFOF);
-	AltSourceProbe#(void, SingleChSum) result <- mkAltSourceDProbe("RES", ?, singleCh.sum);
+	AltSourceProbe#(void, FinalSum) result <- mkAltSourceDProbe("RES", ?, adderTree);
 
-	mkConnection(feedback, singleCh.feedback);
+	mkConnection(toGet(inPipe), toPut(inFifo));
 
-	rule readCh0samp (winPipe.first matches tagged ChSample {0, .sample});
-		fifo.enq(tagged Sample sample);
-		winPipe.deq;
+	(* fire_when_enabled *)
+	rule readSample (inFifo.first matches tagged ChSample {.ch, .sample});
+		let mi = Vector::findElem(ch, enabledChannels);
+		dynamicAssert(isValid(mi), "Disabled channel in pipeline");
+		let i = fromMaybe(?, mi);
+		singleChFifo[i].enq(tagged Sample sample);
+		inFifo.deq;
 	endrule
 
-	rule readCh0end (winPipe.first matches tagged EndMarker .size);
-		fifo.enq(tagged EndMarker size);
-		winPipe.deq;
+	(* fire_when_enabled *)
+	rule readEndMarker (inFifo.first matches tagged EndMarker .size);
+		for (Integer i = 0; i < numEnabledChannels; i = i + 1)
+			singleChFifo[i].enq(tagged EndMarker size);
+		inFifo.deq;
+	endrule
+
+	(* fire_when_enabled *)
+	rule replicateFeedback;
+		let fdbk <- toGet(feedback).get;
+		for (Integer i = 0; i < numEnabledChannels; i = i + 1)
+			singleChDMin[i].feedback.put(fdbk);
 	endrule
 endmodule
 
