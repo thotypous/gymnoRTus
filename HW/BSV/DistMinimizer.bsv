@@ -6,14 +6,12 @@ import Connectable::*;
 import Vector::*;
 import BUtils::*;
 import Assert::*;
+import RegDelayer::*;
 import ChannelFilter::*;
 import OffsetSubtractor::*;
 import LowpassHaar::*;
 import AdderTree::*;
 import SysConfig::*;
-
-import JtagGetPut::*;
-import AltSourceProbe::*;
 
 // Correction for signal after decimation (LowpassHaar)
 typedef TDiv#(SysConfig::WindowMaxSize, 2) WindowMaxSize;
@@ -37,58 +35,98 @@ typedef enum {
 
 typedef struct {
 	SpikesInWin spk;
-	CycleCount cycles;
+	CycleCount rot;
 	FinalSum sum;
 } Result deriving (Eq, Bits, FShow);
 
 
 interface DistMinimizer;
-	//interface PipeOut#(Result) result;
-	//interface Put#(SpikesInWin) feedback;
+	interface PipeOut#(Result) result;
+	interface Put#(SpikesInWin) feedback;
 endinterface
 
-module [Module] mkDistMinimizer#(PipeOut#(OutItem) inPipe) (DistMinimizer);
-	FIFOF#(OutItem) inFifo <- mkSizedBRAMFIFOF(oneMsBufSize);
+typedef TAdd#(TAdd#(TLog#(WindowMaxSize), TLog#(NumEnabledChannels)), 1) TotalTreeDelay;
 
-	Vector#(NumEnabledChannels, FIFOF#(SingleChItem)) singleChFifo
+module [Module] mkDistMinimizer#(PipeOut#(OutItem) inPipe) (DistMinimizer);
+	FIFOF#(OutItem) inBuf <- mkSizedBRAMFIFOF(oneMsBufSize);
+	FIFOF#(SpikesInWin) feedbackFifo <- mkFIFOF;
+	FIFOF#(Result) resultFifo <- mkFIFOF;
+	Reg#(Result) curMin <- mkRegU;
+
+	Vector#(NumEnabledChannels, FIFOF#(SingleChItem)) fifos
 			<- replicateM(mkFIFOF);
-	Vector#(NumEnabledChannels, SingleChDistMinimizer) singleChDMin
-			<- mapM(mkSingleChDistMinimizer, map(f_FIFOF_to_PipeOut, singleChFifo));
+	Vector#(NumEnabledChannels, SingleChDistMinimizer) minimizers
+			<- mapM(mkSingleChDistMinimizer, map(f_FIFOF_to_PipeOut, fifos));
 
 	function SingleChSum getSum(SingleChDistMinimizer ifc) = ifc.sum;
-	AdderN#(16, SingleChSumBits) adderTree <- mkAdderN(append(map(getSum, singleChDMin), replicate(0)));
+	AdderN#(TExp#(TLog#(NumEnabledChannels)), SingleChSumBits) adderTree
+			<- mkAdderN(append(map(getSum, minimizers), replicate(0)));
 
-	Get#(SpikesInWin) feedback <- mkJtagGet("FDBK", mkFIFOF);
-	AltSourceProbe#(void, FinalSum) result <- mkAltSourceDProbe("RES", ?, adderTree);
+	Bit#(TotalTreeDelay) dummyDelay = ?;
+	let state <- mkRegDelayer(dummyDelay, FillSegment, minimizers[0].getState);
+	let remainingRotations <- mkRegDelayer(dummyDelay, 0, minimizers[0].getRemainingRotations);
 
-	mkConnection(toGet(inPipe), toPut(inFifo));
+	let prevState <- mkRegDelayer(1'b0, FillSegment, state);
+
+	mkConnection(toGet(inPipe), toPut(inBuf));
+
+	function eqState(ifc) = ifc.getState == minimizers[0].getState;
+	continuousAssert(Vector::all(eqState, minimizers),
+			"State should be equal across all child minimizers");
+
+	function eqRemRot(ifc) = ifc.getRemainingRotations == minimizers[0].getRemainingRotations;
+	continuousAssert(Vector::all(eqRemRot, minimizers),
+			"Remaining rotations should be equal across all child minimizers");
 
 	(* fire_when_enabled *)
-	rule readSample (inFifo.first matches tagged ChSample {.ch, .sample});
+	rule readSample (inBuf.first matches tagged ChSample {.ch, .sample});
 		let mi = Vector::findElem(ch, enabledChannels);
-		dynamicAssert(isValid(mi), "Disabled channel in pipeline");
+		dynamicAssert(isValid(mi), "Disabled channels should not appear in the pipeline");
 		let i = fromMaybe(?, mi);
-		singleChFifo[i].enq(tagged Sample sample);
-		inFifo.deq;
+		fifos[i].enq(tagged Sample sample);
+		inBuf.deq;
 	endrule
 
 	(* fire_when_enabled *)
-	rule readEndMarker (inFifo.first matches tagged EndMarker .size);
+	rule readEndMarker (inBuf.first matches tagged EndMarker .size);
 		for (Integer i = 0; i < numEnabledChannels; i = i + 1)
-			singleChFifo[i].enq(tagged EndMarker size);
-		inFifo.deq;
+			fifos[i].enq(tagged EndMarker size);
+		inBuf.deq;
 	endrule
 
 	(* fire_when_enabled *)
 	rule replicateFeedback;
-		let fdbk <- toGet(feedback).get;
+		let fdbk <- toGet(feedbackFifo).get;
 		for (Integer i = 0; i < numEnabledChannels; i = i + 1)
-			singleChDMin[i].feedback.put(fdbk);
+			minimizers[i].feedback.put(fdbk);
 	endrule
+
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule resetMin (state == FillSegment);
+		curMin <= Result{spk: ?, rot: ?, sum: maxBound};
+	endrule
+
+	rule updateMin (state == RotateBoth || state == RotateA || state == RotateB
+			&& adderTree < curMin.sum);
+		SpikesInWin spk =
+				state == RotateBoth ? Both :
+				state == RotateA ? OnlyA :
+				state == RotateB ? OnlyB : (?);
+		curMin <= Result{spk: spk, rot: remainingRotations, sum: adderTree};
+	endrule
+
+	rule enqResult (prevState != RestoreA && state == RestoreA);
+		resultFifo.enq(curMin);
+	endrule
+
+	interface result = f_FIFOF_to_PipeOut(resultFifo);
+	interface feedback = toPut(feedbackFifo);
 endmodule
 
 
 interface SingleChDistMinimizer;
+	method State getState;
+	method CycleCount getRemainingRotations;
 	method SingleChSum sum;
 	interface Put#(SpikesInWin) feedback;
 endinterface
@@ -297,6 +335,8 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 		end
 	endrule
 
-	interface feedback = toPut(feedbackIn);
+	method getState = state;
+	method getRemainingRotations = remainingRotations;
 	method sum = adderTree;
+	interface feedback = toPut(feedbackIn);
 endmodule
