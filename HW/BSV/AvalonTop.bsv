@@ -117,6 +117,10 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				action
 					winDma.stop;
 				endaction
+			14'd8:
+				action
+					distMin.feedback.put(unpack(truncate(cmd.data)));
+				endaction
 			14'h1?:
 				action
 					offsetSub.setOffset(cmd.addr[3:0], truncate(cmd.data));
@@ -149,6 +153,22 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 				action
 					pcibar.busClient.response.put(extend(winDma.winInfoPipe.first.timestamp));
 					winDma.winInfoPipe.deq;
+				endaction
+			14'd8:
+				action
+					pcibar.busClient.response.put(distMin.result.notEmpty ? 1 : 0);
+				endaction
+			14'd9:
+				action
+					pcibar.busClient.response.put(extend(distMin.result.first.sum));
+				endaction
+			14'd10:
+				action
+					let result = distMin.result.first;
+					Bit#(16) spk = extend(pack(result.spk));
+					Bit#(16) rot = extend(result.rot);
+					pcibar.busClient.response.put({rot, spk});
+					distMin.result.deq;
 				endaction
 			default:
 				action
