@@ -23,13 +23,13 @@ de4_pcie/synthesis/de4_pcie.qip: de4_pcie.qsys mkAvalonTop.v
 mkAvalonTop.v: $(wildcard BSV/*.bsv)
 	bsc $(BSCFLAGS) -u -verilog -vdir . -bdir BSV -p $(BSCLIBS):+ BSV/AvalonTop.bsv
 
-mkWindowMakerEmu: BSV/WindowMakerEmu.bsv $(wildcard BSV/*.bsv)
+%.bsim: BSV/%.bsv $(wildcard BSV/*.bsv)
 	bsc $(BSCFLAGS) -u -sim -simdir BSV -bdir BSV -p $(BSCLIBS):+ $<
-	bsc -sim -o $@ -e $@ -simdir BSV -bdir BSV
+	bsc -sim -o $@ -e mk$(basename $@) -simdir BSV -bdir BSV
 
 clean:
 	rm -f BSV/*.bo BSV/*.ba BSV/*.cxx BSV/*.h BSV/*.o
-	rm -f mkWindowMakerEmu mkWindowMakerEmu.so mkAvalonTop.v
+	rm -f *.bsim *.so mkAvalonTop.v
 	rm -rf de4_pcie de4_pcie.sopcinfo
 	rm -f de4_pcie.qsf de4_pcie.qpf
 	rm -rf db incremental_db output_files
