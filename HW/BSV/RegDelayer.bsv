@@ -5,6 +5,7 @@ module [Module] mkRegDelayer#(Bit#(stages) dummy, a defv, a in) (ReadOnly#(a))
 
 	Reg#(Vector#(stages, a)) r <- mkReg(replicate(defv));
 
+	(* fire_when_enabled, no_implicit_conditions *)
 	rule update;
 		r <= shiftInAtN(r, in);
 	endrule

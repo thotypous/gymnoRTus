@@ -33,6 +33,7 @@ instance Adder#(n, b)
 		AdderN#(hn, b) a2 <- mkAdderN(drop(in));
 		Reg#(NumTLev#(n, b)) r <- mkRegU;
 
+		(* fire_when_enabled, no_implicit_conditions *)
 		rule add;
 			r <= extend(a1) + extend(a2);
 		endrule
