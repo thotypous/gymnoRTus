@@ -11,6 +11,7 @@ import ChannelFilter::*;
 import OffsetSubtractor::*;
 import LowpassHaar::*;
 import AdderTree::*;
+import CircularBurstQueue::*;
 import SysConfig::*;
 
 // Correction for signal after decimation (LowpassHaar)
@@ -162,7 +163,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 
 	FIFOF#(Sample) spkAFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
 	FIFOF#(Sample) spkBFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
-	FIFOF#(Sample) segmFifo <- mkSizedBRAMFIFOF(valueOf(WindowMaxSize));
+	CircularBurstQueue#(WindowMaxSize, Sample) segmCQ <- mkCircularBurstQueue;
 
 	Reg#(State) state <- mkReg(FillSegment);
 
@@ -194,7 +195,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	rule consumeSample (winPipe.first matches tagged Sample .sample
 			&&& state == FillSegment);
 		shiftRegVec(segment, sample);
-		segmFifo.enq(sample);
+		segmCQ.in.put(sample);
 		winPipe.deq;
 	endrule
 
@@ -212,7 +213,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 			&&  state == FillSegment);
 		remainingFill <= tagged Valid (rem - 1);
 		shiftRegVec(segment, 0);
-		segmFifo.enq(0);
+		segmCQ.in.put(0);
 	endrule
 
 	(* fire_when_enabled *)
@@ -224,6 +225,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 		remainingRotations <= maxCycles;
 		state <= RotateBoth;
 		stepsLeftForInnerRotation <= windowMaxSize - 1;
+		segmCQ.deqBurst;
 		winPipe.deq;
 	endrule
 
@@ -313,17 +315,17 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 
 	(* fire_when_enabled *)
 	rule feedbackCopy (state == FeedbackCopy
-			&& segmFifo.notEmpty);
+			&& segmCQ.out.notEmpty);
 		case (feedbackIn.first) matches
-			OnlyA: shiftRegVec(spikeA, segmFifo.first);
-			OnlyB: shiftRegVec(spikeB, segmFifo.first);
+			OnlyA: shiftRegVec(spikeA, segmCQ.out.first);
+			OnlyB: shiftRegVec(spikeB, segmCQ.out.first);
 		endcase
-		segmFifo.deq;
+		segmCQ.out.deq;
 	endrule
 
 	(* fire_when_enabled *)
 	rule feedbackDone (state == FeedbackCopy
-			&& !segmFifo.notEmpty);
+			&& !segmCQ.out.notEmpty);
 		feedbackIn.deq;
 		state <= FillSegment;
 	endrule
