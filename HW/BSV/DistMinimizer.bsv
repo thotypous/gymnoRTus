@@ -106,7 +106,8 @@ module [Module] mkDistMinimizer#(PipeOut#(OutItem) inPipe) (DistMinimizer);
 		curMin <= Result{spk: ?, rot: ?, sum: maxBound};
 	endrule
 
-	rule updateMin (state == RotateBoth || state == RotateA || state == RotateB
+	(* fire_when_enabled, no_implicit_conditions *)
+	rule updateMin ((state == RotateBoth || state == RotateA || state == RotateB)
 			&& adderTree < curMin.sum);
 		SpikesInWin spk =
 				state == RotateBoth ? Both :
@@ -115,6 +116,7 @@ module [Module] mkDistMinimizer#(PipeOut#(OutItem) inPipe) (DistMinimizer);
 		curMin <= Result{spk: spk, rot: remainingRotations, sum: adderTree};
 	endrule
 
+	(* fire_when_enabled *)
 	rule enqResult (prevState != RestoreA && state == RestoreA);
 		resultFifo.enq(curMin);
 	endrule
