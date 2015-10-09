@@ -26,6 +26,12 @@
 #define AVALONTOP_WSTOP   0x14
 #define AVALONTOP_GSZREF  0x18
 #define AVALONTOP_GTSDEQ  0x1c
+
+#define AVALONTOP_DMINRDY 0x20
+#define AVALONTOP_DMINSUM 0x24
+#define AVALONTOP_DMINGET 0x28
+#define AVALONTOP_DMINFBK 0x20
+
 #define AVALONTOP_SETOFF  0x40
 
 #define AVALONTOP_DOMOCK  0x08
@@ -74,7 +80,11 @@ static int irq_handler(unsigned irq, void *cookie_) {
         regval = ioread32(avalontop_base + AVALONTOP_GTSDEQ);
         rtf_put(FIFO_DATA, (void*)&regval, sizeof(regval));
         rtf_put(FIFO_DATA, (void*)&dma_ptr[firstIndex],
-            size * DMA_WORDS_REQUIRED_FOR_ALL_CH * sizeof(uint64_t));
+                size * DMA_WORDS_REQUIRED_FOR_ALL_CH * sizeof(uint64_t));
+        while (!ioread32(avalontop_base + AVALONTOP_DMINRDY));
+        rt_printk("pcie_interrupt_driver: dmin result = %08x\n",
+                ioread32(avalontop_base + AVALONTOP_DMINGET));
+        iowrite32(1, avalontop_base + AVALONTOP_DMINFBK);
         ++epoch;
     }
 
