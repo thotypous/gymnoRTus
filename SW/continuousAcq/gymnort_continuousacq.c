@@ -20,13 +20,13 @@
 // Defines some CRA addresses
 #define CRA_INTSTAREG   0x40
 
-// Defines for the EchoModule Interface
+// Defines for the AvalonTop Interface
 #define AVALONTOP_WADDR 0x00
 #define AVALONTOP_RFLAG 0x00
 #define AVALONTOP_WSTOP 0x04
 
 #define DMA_BITS 32
-#define DMA_BUF_WORDS 8192
+#define DMA_BUF_WORDS 8192  // Same as ContinuousAcqBufSize (SysConfig.bsv)
 #define DMA_BUF_SIZE (DMA_BUF_WORDS*sizeof(uint64_t))
 
 static void *avalontop_base;
@@ -54,7 +54,7 @@ static int irq_handler(unsigned irq, void *cookie_) {
 
 
 static struct pci_device_id pci_ids[] = {
-    { PCI_DEVICE(0x1172, 0x0de4), }, // Demo numbers
+    { PCI_DEVICE(0x1172, 0x0de4), },
     { 0, }
 };
 MODULE_DEVICE_TABLE(pci, pci_ids);
@@ -63,7 +63,7 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id);
 static void pci_remove(struct pci_dev *dev);
 
 static struct pci_driver pci_driver = {
-    .name       = "pcie_interrupt",
+    .name       = "gymnort_continuousacq",
     .id_table   = pci_ids,
     .probe      = pci_probe,
     .remove     = pci_remove,
@@ -148,7 +148,7 @@ static void pci_remove(struct pci_dev *dev) {
  *  Driver Init/Exit Functions *
  *******************************/
 
-static int pcie_interrupt_init(void) {
+static int __init m_init(void) {
     int retval;
 
     rtf_create(FIFO_DATA, 16*MB);
@@ -164,7 +164,7 @@ static int pcie_interrupt_init(void) {
     return retval;
 }
 
-static void pcie_interrupt_exit(void) {
+static void __exit m_exit(void) {
     iowrite32(0, avalontop_base + AVALONTOP_WSTOP);
 
     rtf_destroy(FIFO_DATA);
@@ -173,6 +173,6 @@ static void pcie_interrupt_exit(void) {
     rt_printk("gymnort_continuousacq: pci driver unregistered.\n");
 }
 
-module_init(pcie_interrupt_init);
-module_exit(pcie_interrupt_exit);
+module_init(m_init);
+module_exit(m_exit);
 MODULE_LICENSE("GPL");
