@@ -79,11 +79,11 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     retval = pci_enable_device(dev);
 
     if(retval) {
-        rt_printk("pcie_interrupt_driver: ERROR: Unable to enable device: %d\n",retval);
+        rt_printk("gymnort_continuousacq: ERROR: Unable to enable device: %d\n",retval);
         return retval;
     }
     else
-        rt_printk("pcie_interrupt_driver: device enabled!\n");
+        rt_printk("gymnort_continuousacq: device enabled!\n");
 
     // Allow device to master the bus (required for DMA)
     pci_set_master(dev);
@@ -91,34 +91,34 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     // Set coherent DMA address limitation
     retval = pci_set_consistent_dma_mask(dev, DMA_BIT_MASK(DMA_BITS));
     if(retval) {
-        rt_printk("pcie_interrupt_driver: ERROR: Unable to set DMA bit mask: %d\n", retval);
+        rt_printk("gymnort_continuousacq: ERROR: Unable to set DMA bit mask: %d\n", retval);
         return retval;
     }
 
     // Allocate a memory block suitable for coherent DMA
     dma_ptr = dma_alloc_coherent(&dev->dev, DMA_BUF_SIZE, &dma_handle, GFP_KERNEL);
     if(dma_ptr == NULL) {
-        rt_printk("pcie_interrupt_driver: could not allocate memory for DMA\n");
+        rt_printk("gymnort_continuousacq: could not allocate memory for DMA\n");
         return -ENOMEM;
     }
 
-    rt_printk("pcie_interrupt_driver: Allocated coherent memory: dma_handle=0x%x, ptr=%p\n", dma_handle, dma_ptr);
+    rt_printk("gymnort_continuousacq: Allocated coherent memory: dma_handle=0x%x, ptr=%p\n", dma_handle, dma_ptr);
 
     // Gets a pointer to bar0
     resource = pci_resource_start(dev,0);
     avalontop_base = ioremap_nocache(resource + PCIE_AVALONTOP, 16);
 
     // Read vendor ID
-    rt_printk("pcie_interrupt_driver: Found Vendor id: 0x%0.4x\n", dev->vendor);
-    rt_printk("pcie_interrupt_driver: Found Device id: 0x%0.4x\n", dev->device);
+    rt_printk("gymnort_continuousacq: Found Vendor id: 0x%0.4x\n", dev->vendor);
+    rt_printk("gymnort_continuousacq: Found Device id: 0x%0.4x\n", dev->device);
 
     // Read IRQ Number
-    rt_printk("pcie_interrupt_driver: Found IRQ: %d\n", dev->irq);
+    rt_printk("gymnort_continuousacq: Found IRQ: %d\n", dev->irq);
 
     // Request IRQ and install handler
     retval = rt_request_irq(dev->irq, irq_handler, NULL, 0);
     if(retval) {
-        rt_printk("pcie_interrupt_driver: request_irq failed!\n");
+        rt_printk("gymnort_continuousacq: request_irq failed!\n");
         return retval;
     }
 
@@ -141,7 +141,7 @@ static void pci_remove(struct pci_dev *dev) {
     iounmap(avalontop_base);
 
     pci_set_drvdata(dev,NULL);
-    rt_printk("pcie_interrupt_driver: Interrupt handler uninstalled.\n");
+    rt_printk("gymnort_continuousacq: Interrupt handler uninstalled.\n");
 }
 
 /*******************************
@@ -157,9 +157,9 @@ static int pcie_interrupt_init(void) {
     // IRQ is requested on pci_probe
     retval = pci_register_driver(&pci_driver);
     if (retval)
-        rt_printk("pcie_interrupt_driver: ERROR: cannot register pci.\n");
+        rt_printk("gymnort_continuousacq: ERROR: cannot register pci.\n");
     else
-        rt_printk("pcie_interrupt_driver: pci driver registered.\n");
+        rt_printk("gymnort_continuousacq: pci driver registered.\n");
 
     return retval;
 }
@@ -170,7 +170,7 @@ static void pcie_interrupt_exit(void) {
     rtf_destroy(FIFO_DATA);
 
     pci_unregister_driver(&pci_driver);
-    rt_printk("pcie_interrupt_driver: pci driver unregistered.\n");
+    rt_printk("gymnort_continuousacq: pci driver unregistered.\n");
 }
 
 module_init(pcie_interrupt_init);

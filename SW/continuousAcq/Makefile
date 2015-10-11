@@ -13,4 +13,4 @@ default:
 clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions modules.order Module.symvers
 
-obj-m := rtai_pcie_interrupt_driver.o
+obj-m := gymnort_continuousacq.o
