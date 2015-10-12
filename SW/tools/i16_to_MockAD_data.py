@@ -1,24 +1,25 @@
+# generates input for the mockAD kernel module ('/dev/rtf1' FIFO)
+
 from __future__ import division
+import common.cfg as cfg
 import numpy as np
 import sys
 import os
 
-EnabledChannels = 11
-MockADChannels = 16
-ADBits = 12
+
 BufSize = 1024
 
 
 def main():
-    offset = (1 << (ADBits - 1)) - 1
+    offset = (1 << (cfg.ADBits - 1)) - 1
     minval = 0
-    maxval = (1 << ADBits) - 1
+    maxval = (1 << cfg.ADBits) - 1
 
-    fillbuf = np.zeros((BufSize, MockADChannels - EnabledChannels))
+    fillbuf = np.zeros((BufSize, cfg.TotalCh - cfg.EnabledCh))
 
     infile = sys.argv[1]
-    siglen = os.path.getsize(infile) // np.dtype(np.int16).itemsize // EnabledChannels
-    inarr = np.memmap(infile, mode='r', dtype=np.int16, shape=(siglen, EnabledChannels))
+    siglen = os.path.getsize(infile) // np.dtype(np.int16).itemsize // cfg.EnabledCh
+    inarr = np.memmap(infile, mode='r', dtype=np.int16, shape=(siglen, cfg.EnabledCh))
 
     for i in xrange(0, siglen, BufSize):
         inbuf = inarr[i:i + BufSize, :]
