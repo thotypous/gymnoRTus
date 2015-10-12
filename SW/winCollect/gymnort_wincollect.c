@@ -31,18 +31,11 @@
 #define AVALONTOP_DMINGET 0x28
 #define AVALONTOP_DMINFBK 0x20
 
-#define AVALONTOP_SETOFF  0x40
-
 #define DMA_BITS 32
 #define DMA_WORDS_REQUIRED_FOR_ALL_CH 3
 #define WIN_MAX_SIZE 256
 #define DMA_BUF_WORDS (2*DMA_WORDS_REQUIRED_FOR_ALL_CH*WIN_MAX_SIZE)
 #define DMA_BUF_SIZE (DMA_BUF_WORDS*sizeof(uint64_t))
-
-static int offsetArray[16] = {
-    0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff,
-    0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff, 0x7ff
-};
 
 static void *avalontop_base;
 
@@ -99,7 +92,7 @@ static struct pci_driver pci_driver = {
 
 static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id) {
     unsigned long resource;
-    int i, retval;
+    int retval;
 
     if (++n_devices > 1)
         return -EOVERFLOW;
@@ -152,13 +145,6 @@ static int pci_probe(struct pci_dev *dev, const struct pci_device_id *id) {
 
     rt_startup_irq(dev->irq);
 
-    // Set offsets
-    rt_printk("gymnort_wincollect: setting up OffsetSubtractor\n");
-    for (i = 0; i < ARRAY_SIZE(offsetArray); i++) {
-        rt_printk("gymnort_wincollect: offsetArray[%d] = 0x%03x\n", i, offsetArray[i]);
-        iowrite32(offsetArray[i], avalontop_base + AVALONTOP_SETOFF + 4*i);
-    }
-
     rt_printk("gymnort_wincollect: enabling WindowDMA\n");
     iowrite32(dma_handle, avalontop_base + AVALONTOP_WADDR);
 
@@ -184,18 +170,8 @@ static void pci_remove(struct pci_dev *dev) {
  *  Driver Init/Exit Functions *
  *******************************/
 
-module_param_array(offsetArray, int, NULL, 0);
-MODULE_PARM_DESC(offsetArray, "DC offsets calibrated for each channel.");
-
 static int __init m_init(void) {
-    int i, retval;
-
-    for (i = 0; i < ARRAY_SIZE(offsetArray); i++) {
-        if (offsetArray[i] < 0 || offsetArray[i] >= (1<<12)) {
-            rt_printk("gymnort_wincollect: %d-th offset invalid: %d.\n", i, offsetArray[i]);
-            return -EINVAL;
-        }
-    }
+    int retval;
 
     rtf_create(FIFO_DATA, 16*MB);
 
