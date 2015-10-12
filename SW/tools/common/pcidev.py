@@ -47,5 +47,8 @@ class GymnortusPci(PciDev):
         super(GymnortusPci, self).__init__(0x1172, 0x0de4)
         self.map(0)
 
+    def setMocked(self, mocked):
+        self.bar[0][addrmap.WMockADSetMocked] = 1 if mocked else 0
+
     def setOffset(self, ch, off):
         self.bar[0][addrmap.WSetOffset + ch] = off
