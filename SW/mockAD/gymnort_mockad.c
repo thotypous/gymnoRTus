@@ -11,14 +11,8 @@
 
 #define FIFO_MOCK    1
 
-// Defines addresses configured on QSys (bar0)
+// Base address (bar0)
 #define PCIE_AVALONTOP  0x0000
-
-// Defines addresses configured on QSys (bar2)
-#define PCIE_CRA        0x0000
-
-// Defines some CRA addresses
-#define CRA_INTSTAREG   0x40
 
 // Defines for the AvalonTop Interface
 #define AVALONTOP_DOMOCK  0x08
