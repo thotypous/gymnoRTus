@@ -2,6 +2,7 @@
 
 import os
 import argparse
+import subprocess
 import numpy as np
 import common.pcidev as pcidev
 import common.path as path
@@ -16,7 +17,7 @@ def middlescale():
 
 def curroff():
     ko = os.path.join(path.sw, 'continuousAcq', 'gymnort_continuousacq.ko')
-    assert os.system('insmod ' + ko) == 0
+    assert subprocess.Popen(['insmod', ko]).wait() == 0
     
     samplesPerCh = int(cfg.CalibrateTime * cfg.SamplingRate)
     samples = cfg.TotalCh * samplesPerCh
@@ -26,7 +27,7 @@ def curroff():
         data = np.frombuffer(dev.read(octets), dtype=np.uint16)
         data = np.reshape(data, (samplesPerCh, cfg.TotalCh))
 
-    assert os.system('rmmod ' + ko) == 0
+    assert subprocess.Popen(['rmmod', ko]).wait() == 0
     
     setOffsets(data.astype(np.float).mean(axis=0).round().astype(np.uint16))
 
