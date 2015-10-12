@@ -11,7 +11,7 @@ MaxSample = (1 << cfg.ADBits) - 1
 
 ch_index = int(sys.argv[1])  # which channel to plot
 
-dev = open('/dev/rtf0', 'rb')
+dev = open(cfg.ContinuousAcqDev, 'rb')
 
 fig, ax = plt.subplots(subplot_kw={'axisbg': 'black'})
 
