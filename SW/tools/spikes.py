@@ -72,7 +72,7 @@ def main():
     parser.add_argument('--fixedwin', help='Fixed window (use for single-fish data files)', action='store_true')
     parser.add_argument('--windowSize', type=int, default=cfg.SpikesWinSize, help='Window size, if --fixedwin')
     parser.add_argument('--afterRef', type=int, default=cfg.SpikesAfterRef, help='Samples after reference point, if --fixedwin')
-    parser.add_argument('--saturation', type=str, help='low,high saturation level to filter out')
+    parser.add_argument('--saturation', type=str, help='high,low saturation level to filter out')
     parser.add_argument('--onlyabove', type=float, default=0.0, help='Only output spikes above this amplitude')
     parser.add_argument('--winlen', type=argparse.FileType('w'), help='Output original window lengths to a text file')
 
@@ -87,11 +87,11 @@ def main():
     afterRef = args.afterRef
 
     saturation = args.saturation
-    satLow = -np.inf
     satHigh = np.inf
+    satLow = -np.inf
     if saturation is not None:
-        satLow = float(saturation.split(',')[0].strip())
-        satHigh = float(saturation.splot(',')[1].strip())
+        satHigh = float(saturation.split(',')[0].strip())
+        satLow = float(saturation.split(',')[1].strip())
     onlyAbove = args.onlyabove
     winlenFile = args.winlen
     
