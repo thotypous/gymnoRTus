@@ -6,15 +6,12 @@ import numpy as np
 import sys
 
 
-MaxVoltage = 10
-
-
 def main():
     infile = sys.argv[1]
     outfile = sys.argv[2]
 
     bits = cfg.ADBits
-    ratio = (1 << (bits - 1)) / MaxVoltage
+    ratio = (1 << (bits - 1)) / cfg.VoltageScale
 
     minv = -(1 << (bits - 1)) + 2
     maxv = (1 << (bits - 1)) - 1

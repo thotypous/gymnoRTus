@@ -25,7 +25,7 @@ def curroff():
     
     with open(cfg.ContinuousAcqDev, 'rb') as dev:
         data = np.frombuffer(dev.read(octets), dtype=np.uint16)
-        data = np.reshape(data, (samplesPerCh, cfg.TotalCh))
+        data = data.reshape((samplesPerCh, cfg.TotalCh))
 
     assert subprocess.Popen(['rmmod', ko]).wait() == 0
     
