@@ -124,12 +124,8 @@ static inline void dtcwpt_normed_fulltree(float tree1[static WaveletOutSize]) {
     cwpt_fulltree(&tree2_filt, tree2, WaveletInSize);
 
     __m256 *a = (__m256*)tree1, *b = (__m256*)tree2;
-    __m256 max8={};
-
-    for (int i = 0; i < WaveletOutSize/8; i++) {
+    for (int i = 0; i < WaveletOutSize/8; i++)
         a[i] = _mm256_sqrt_ps(a[i]*a[i] + b[i]*b[i]);
-        max8 = _mm256_max_ps(max8, a[i]);
-    }
 
     for (int i = 0; i < Log2WaveletInSize + 1; i++)
         norm_float8_arr(&tree1[WaveletInSize*i], WaveletInSize);
