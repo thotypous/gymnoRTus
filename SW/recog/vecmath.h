@@ -117,4 +117,10 @@ static inline __m256d exp_double4(__m256d x) {
     return ldexp_double4(x, n);
 }
 
+// avoids the need for rtai_math just because of a single scalar math func
+static inline double scalar_exp(const double x) {
+    const __m256d x4 = VEC4(x);
+    return exp_double4(x4)[0];
+}
+
 #endif

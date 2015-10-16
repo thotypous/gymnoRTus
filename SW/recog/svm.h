@@ -27,4 +27,23 @@ static inline double svm_decision_value(double features[static NumFeatures]) {
 	return sum4[0] + sum4[1] + sum4[2] + sum4[3] - svm_rho;
 }
 
+// based on libsvm
+static inline double sigmoid_predict(const double decision_value)
+{
+	const double fApB = svm_probA * decision_value + svm_probB;
+	double prob;
+
+	if (fApB >= 0) {
+		const double exp_minus_fApB = scalar_exp(-fApB);
+		prob = exp_minus_fApB/(1.0+exp_minus_fApB);
+	}
+	else {
+		const double exp_fApB = scalar_exp(fApB);
+		prob = 1.0/(1.0+exp_fApB) ;
+	}
+
+	const double min_prob = 1e-7;
+	return __builtin_fmin(1-min_prob, __builtin_fmax(min_prob, prob));
+}
+
 #endif
