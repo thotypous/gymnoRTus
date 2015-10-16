@@ -21,3 +21,6 @@ CalibrateTime = 2.0        # s
 # spikes config
 SpikesWinSize = 128        # samples
 SpikesAfterRef = 35        # samples, set to WindowMaker's forceSamplesAfterMax
+
+# translateModel config
+DtcwptOffset = 64          # gymnotools's NumFFTFeatures

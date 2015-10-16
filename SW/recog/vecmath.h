@@ -31,6 +31,15 @@ static inline void norm_float8_arr(afloat *arr, const int sz) {
        a[i] /= max;
 }
 
+static inline void mult_scalar_double4_arr(const double scalar, adouble *arr, const int sz) {
+    __m256d* a = (__m256d*)arr;
+    int i;
+    for (i=0; i<sz/4; i++)
+        a[i] *= scalar;
+    for (i*=4; i<sz; i++)
+        arr[i] *= scalar;
+}
+
 // based on http://stackoverflow.com/a/22454638
 static inline double dot_double4_arr(adouble *a, adouble *b, const int sz) {
     __m256d* a4 = (__m256d*)a;
