@@ -41,7 +41,8 @@ def gen_svm(filename, svm):
         f.write('static const double svm_rho = %.12e;\n\n' % svm.rho)
         f.write('static const double svm_probA = %.12e;\n' % svm.probA)
         f.write('static const double svm_probB = %.12e;\n\n' % svm.probB)
-        write_arr(f, 'svm_sv_coef[svm_l]', svm.sv_coef)
+        sv_coef_pad = np.concatenate((svm.sv_coef, np.zeros((4, ))))
+        write_arr(f, 'svm_sv_coef[svm_l + 4]', sv_coef_pad)
         f.write('\nstatic const double svm_SV[svm_l][NumFeatures] ALIGN(32) = {\n')
         for i in xrange(svm.l):
             f.write('    {' + ', '.join('%.12e'%x for x in svm.SV[i,:]) + '}, \n')

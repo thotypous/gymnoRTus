@@ -31,19 +31,32 @@ static inline void norm_float8_arr(afloat *arr, const int sz) {
        a[i] /= max;
 }
 
-static inline void mult_scalar_double4_arr(const double scalar, adouble *arr, const int sz) {
-    __m256d* a = (__m256d*)arr;
+// a *= b
+static inline void mult_double4_arr(adouble *a, const adouble *b, const int sz) {
+    __m256d* a4 = (__m256d*)a;
+    const __m256d* b4 = (__m256d*)b;
     int i;
     for (i=0; i<sz/4; i++)
-        a[i] *= scalar;
+        a4[i] *= b4[i];
     for (i*=4; i<sz; i++)
-        arr[i] *= scalar;
+        a[i] *= b[i];
+}
+
+// a += b
+static inline void add_double4_arr(adouble *a, const adouble *b, const int sz) {
+    __m256d* a4 = (__m256d*)a;
+    const __m256d* b4 = (__m256d*)b;
+    int i;
+    for (i=0; i<sz/4; i++)
+        a4[i] += b4[i];
+    for (i*=4; i<sz; i++)
+        a[i] += b[i];
 }
 
 // based on http://stackoverflow.com/a/22454638
-static inline double dot_double4_arr(adouble *a, adouble *b, const int sz) {
-    __m256d* a4 = (__m256d*)a;
-    __m256d* b4 = (__m256d*)b;
+static inline double dot_double4_arr(const adouble *a, const adouble *b, const int sz) {
+    const __m256d* a4 = (__m256d*)a;
+    const __m256d* b4 = (__m256d*)b;
     int i;
     __m256d sum4={};
     for (i=0; i<sz/4; i++)

@@ -90,12 +90,13 @@ static inline void afb(const wavelet_filt *filt, const float *restrict in, unsig
 
 static void cwpt_fulltree(const cwpt_filt *filt, afloat *restrict arr, unsigned int n) {
     const unsigned int n2 = n>>1;
-    unsigned int m = n2, off = n<<1;
+    unsigned int m = n2;
 
     // First stage
     afb(filt->first, &arr[0], n, &arr[n], &arr[n+m]);
 
     // Second stage
+    unsigned int off = n<<1;
     afb(filt->cwt, &arr[n  ], m, &arr[off         ], &arr[off+(m>>1)]);
     afb(filt->cwt, &arr[n+m], m, &arr[off+m+(m>>1)], &arr[off+ m    ]);
 
