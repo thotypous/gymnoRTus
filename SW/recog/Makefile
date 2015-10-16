@@ -5,7 +5,6 @@
 # The current directory is passed to sub-makes as argument
 	PWD := $(shell pwd)
 	EXTRA_CFLAGS := -I$(src) -I/usr/realtime/include -std=gnu1x -Wno-declaration-after-statement -march=native -msse -mmmx -msse2 -mavx -Ofast
-	#EXTRA_CFLAGS := -I$(src) -I/usr/realtime/include -std=gnu1x -Wno-declaration-after-statement -Ofast
 	KBUILD_EXTRA_SYMBOLS := /usr/realtime/modules/Module.symvers
 
 default:
