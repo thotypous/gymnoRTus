@@ -55,17 +55,22 @@ static inline void add_double4_arr(adouble *a, const adouble *b, const int sz) {
         a[i] += b[i];
 }
 
-// based on http://stackoverflow.com/a/22454638
-static inline double dot_double4_arr(const adouble *a, const adouble *b, const int sz) {
+// |a-b|^2
+static inline double normsq_double4_arr(const adouble *a, const adouble *b, const int sz) {
     const __m256d* a4 = (__m256d*)a;
     const __m256d* b4 = (__m256d*)b;
     int i;
     __m256d sum4={};
-    for (i=0; i<sz/4; i++)
-        sum4 += a4[i]*b4[i];
-    double dot = sum4[0] + sum4[1] + sum4[2] + sum4[3];
-    for (i*=4; i<sz; i++) dot += a[i]*b[i];
-    return dot;
+    for (i=0; i<sz/4; i++) {
+        const __m256d dist = a4[i] - b4[i];
+        sum4 += dist*dist;
+    }
+    double sum = sum4[0] + sum4[1] + sum4[2] + sum4[3];
+    for (i*=4; i<sz; i++) {
+        const double dist = a[i] - b[i];
+        sum += dist*dist;
+    }
+    return sum;
 }
 
 // based on https://root.cern.ch

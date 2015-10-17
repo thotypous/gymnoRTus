@@ -14,15 +14,15 @@ static inline void svm_prepare_features(float dtcwpt[static WaveletOutSize], dou
 }
 
 static inline double svm_decision_value(double features[static NumFeatures]) {
-    double ALIGN(32) dotp[svm_l + 4];
+    double ALIGN(32) normsq[svm_l + 4];
     for (int i = 0; i < svm_l; i++)
-        dotp[i] = dot_double4_arr(&svm_SV[i][0], features, NumFeatures);
+        normsq[i] = normsq_double4_arr(&svm_SV[i][0], features, NumFeatures);
 
-    __m256d* dotp4 = (__m256d*)dotp;
+    __m256d* normsq4 = (__m256d*)normsq;
     __m256d* sv_coef4 = (__m256d*)svm_sv_coef;
     __m256d sum4={};
     for (int i = 0; i < (svm_l + 4)/4; i++)
-        sum4 += sv_coef4[i] * exp_double4(-svm_gamma * dotp4[i]);
+        sum4 += sv_coef4[i] * exp_double4(-svm_gamma * normsq4[i]);
 
     return sum4[0] + sum4[1] + sum4[2] + sum4[3] - svm_rho;
 }
