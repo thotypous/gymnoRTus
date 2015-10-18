@@ -2,13 +2,12 @@
 #define GYMNORTUS_VECMATH_H
 
 #include <immintrin.h>
-#include <stdint.h>
 
-#define ALIGN(N) __attribute__((aligned(N)))
+#define ALIGNED(N) __attribute__((aligned(N)))
 
-typedef float   ALIGN(32) afloat;
-typedef double  ALIGN(32) adouble;
-typedef int16_t ALIGN(32) aint16;
+typedef float   ALIGNED(32) afloat;
+typedef double  ALIGNED(32) adouble;
+typedef int16_t ALIGNED(32) aint16;
 
 #define VEC4(x) { (x), (x), (x), (x) }
 #define VEC8(x) { (x), (x), (x), (x), (x), (x), (x), (x) }
