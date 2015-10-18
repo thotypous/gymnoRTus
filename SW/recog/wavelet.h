@@ -64,16 +64,17 @@ static inline void afb(const wavelet_filt *filt, const float *restrict in, unsig
     const int off = filt->off;
 
     const int n1 = n - 1;  // n = 2^i => x%n == x&(n-1)
-    float ALIGNED(32) extin[256];
+    static float ALIGNED(32) extin[256];
     //BUG_ON(off + n + ncoef > ARRAY_SIZE(extin));
     for (int i = 0; i < off + n + ncoef; i++)
         extin[i] = in[i & n1];
 
-    float ALIGNED(32) _hout[n/2];
-    float ALIGNED(32) _gout[n/2];
+    const int n2 = n>>1;
+    float ALIGNED(32) _hout[n2];
+    float ALIGNED(32) _gout[n2];
 
-    __builtin_memset(_hout, 0, sizeof(_hout));
-    __builtin_memset(_gout, 0, sizeof(_gout));
+    __builtin_memset(_hout, 0, n2*sizeof(_hout[0]));
+    __builtin_memset(_gout, 0, n2*sizeof(_gout[0]));
 
     for (int ii=0,i=0; i<n; i+=2,ii++) {
         const int ni = off + i;
@@ -84,8 +85,8 @@ static inline void afb(const wavelet_filt *filt, const float *restrict in, unsig
         }
     }
 
-    __builtin_memcpy(hout, _hout, sizeof(_hout));
-    __builtin_memcpy(gout, _gout, sizeof(_gout));
+    __builtin_memcpy(hout, _hout, n2*sizeof(_hout[0]));
+    __builtin_memcpy(gout, _gout, n2*sizeof(_gout[0]));
 }
 
 static void cwpt_fulltree(const cwpt_filt *filt, afloat *restrict arr, unsigned int n) {
@@ -118,7 +119,7 @@ static void cwpt_fulltree(const cwpt_filt *filt, afloat *restrict arr, unsigned 
 }
 
 static inline void dtcwpt_normed_fulltree(float tree1[static WaveletOutSize]) {
-    float ALIGNED(32) tree2[WaveletOutSize];
+    static float ALIGNED(32) tree2[WaveletOutSize];
     __builtin_memcpy(tree2, tree1, WaveletInSize*sizeof(tree1[0]));
 
     cwpt_fulltree(&tree1_filt, tree1, WaveletInSize);

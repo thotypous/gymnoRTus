@@ -14,7 +14,7 @@ static inline void svm_prepare_features(float dtcwpt[static WaveletOutSize], dou
 }
 
 static inline double svm_decision_value(double features[static NumFeatures]) {
-    double ALIGNED(32) normsq[svm_l + 4];
+    static double ALIGNED(32) normsq[svm_l + 4];
     for (int i = 0; i < svm_l; i++)
         normsq[i] = normsq_double4_arr(&svm_SV[i][0], features, NumFeatures);
 
