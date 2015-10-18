@@ -13,8 +13,8 @@ typedef int16_t ALIGN(32) aint16;
 #define VEC4(x) { (x), (x), (x), (x) }
 #define VEC8(x) { (x), (x), (x), (x), (x), (x), (x), (x) }
 
-static inline __m256 max_float8_arr(afloat *arr, const int sz) {
-    __m256 *a = (__m256*)arr;
+static inline __m256 max_float8_arr(const afloat *arr, const int sz) {
+    const __m256 *a = (__m256*)arr;
     __m256 max8={};
     for (int i = 0; i < sz/8; i++)
         max8 = _mm256_max_ps(max8, a[i]);
@@ -24,6 +24,21 @@ static inline __m256 max_float8_arr(afloat *arr, const int sz) {
     __m128 max1 = _mm_max_ps(max2, _mm_permute_ps(max2, 0x4e)); //'b01_00_11_10
     // replicate max
     return _mm256_insertf128_ps(_mm256_castps128_ps256(max1), max1, 1);
+}
+
+static inline float scalar_max_abs_float8_arr(const afloat *arr, const int sz) {
+    const __m256 *a = (__m256*)arr;
+    __m256 max8={};
+    for (int i = 0; i < sz/8; i++) {
+        max8 = _mm256_max_ps(max8,  a[i]);
+        max8 = _mm256_max_ps(max8, -a[i]);
+    }
+    // reduce max
+    __m128 max4 = _mm_max_ps(_mm256_extractf128_ps(max8, 1), _mm256_castps256_ps128(max8));
+    __m128 max2 = _mm_max_ps(max4, _mm_permute_ps(max4, 0xb1)); //'b10_11_00_01
+    __m128 max1 = _mm_max_ps(max2, _mm_permute_ps(max2, 0x4e)); //'b01_00_11_10
+    // replicate max
+    return max1[0];
 }
 
 static inline void norm_float8_arr(afloat *arr, const int sz) {
