@@ -59,9 +59,10 @@ static unsigned long saved_cr0;
 // ts: spike timestamp
 // individual: 1 for A, 2 for B
 // alone_in_window: true if the window was OnlyA or OnlyB, false if it was Both
-static void emit_result(uint32_t ts, int32_t individual, bool alone_in_window) {
+static void emit_result(uint32_t ts, int32_t individual, int32_t alone_in_window) {
     rtf_put(FIFO_DATA, (void*)&ts, sizeof(ts));
     rtf_put(FIFO_DATA, (void*)&individual, sizeof(individual));
+    rtf_put(FIFO_DATA, (void*)&alone_in_window, sizeof(alone_in_window));
 }
 
 // Get the result from the DistMinimizer hardware module
@@ -90,7 +91,7 @@ static void process_window(const void *in, const uint32_t ts, const int size, co
     static float ALIGNED(32) max_amplitude[NumChannels] = {};
     static double ALIGNED(32) features[NumFeatures];
 
-    //--------------------------------------------
+    //-------------------------------
     // Classify all suitable channels
 
     prepare_window((const aint16 *)in, size, ref, sig);
@@ -101,110 +102,145 @@ static void process_window(const void *in, const uint32_t ts, const int size, co
     int svmChannels = 0;
     double minProb = 1.0;
 
-    for (int ch = 0; ch < NumChannels; ch++) {
-        const float amp = max_amplitude[ch];
-        if (amp >= OnlyAbove && amp <= SaturationThreshold) {
-            dtcwpt_normed_fulltree(sig[ch]);
-            svm_prepare_features(sig[ch], features);
-            const double dec_val = svm_decision_value(features);
+    if (size <= MaxWinSizeForSVM) {
+        for (int ch = 0; ch < NumChannels; ch++) {
+            const float amp = max_amplitude[ch];
+            if (amp >= OnlyAbove && amp <= SaturationThreshold) {
+                dtcwpt_normed_fulltree(sig[ch]);
+                svm_prepare_features(sig[ch], features);
+                const double dec_val = svm_decision_value(features);
 
-            if (dec_val >= 0.0)
-                svmResult = (svmResult == OnlyB || svmResult == Both) ? Both : OnlyA;
-            else
-                svmResult = (svmResult == OnlyA || svmResult == Both) ? Both : OnlyB;
+                if (dec_val >= 0.0)
+                    svmResult = (svmResult == OnlyB || svmResult == Both) ? Both : OnlyA;
+                else
+                    svmResult = (svmResult == OnlyA || svmResult == Both) ? Both : OnlyB;
 
-            const double prob = sigmoid_predict(dec_val);
-            minProb = __builtin_fmin(minProb, __builtin_fmax(prob, 1.0-prob));
+                const double prob = sigmoid_predict(dec_val);
+                minProb = __builtin_fmin(minProb, __builtin_fmax(prob, 1.0-prob));
 
-            ++svmChannels;
+                ++svmChannels;
+            }
         }
     }
+
+    //rt_printk("gymnort_recog: SVM: ch=%d, prob=%d, result=%d\n", svmChannels, (int)(10000*minProb), svmResult);
 
     //--------------------------------------------
     // Obtain DistMinimizer hardware module result
 
     SpikesInWin dminResult;
     int offA = 0, offB = 0;
+    static int fixA = 0, fixB = 0;
     distminimizer_get_result(&dminResult, &offA, &offB);
+    //rt_printk("gymnort_recog: DMin: result=%d, offA=%d, offB=%d\n", dminResult, offA, offB);
 
-    //--------------------------------------------
-    // Initialize or reset DistMinimizer if SVM has high specificity
+    //----------------------------------------------------------------
+    // Initialize DistMinimizer if SVM detects a high specificity pair
 
-    static SpikesInWin initialized = NotDetected;
+    static bool initialized = false;
     static int A_disagreement = 0, B_disagreement = 0;
     const uint32_t singleSpkTs = ts - ref;
+ 
+    static SpikesInWin lastPairMemberResult = NotDetected;
 
-    if ((svmResult == OnlyA || svmResult == OnlyB)
+    if (!initialized
+            && (svmResult == OnlyA || svmResult == OnlyB)
             && (size <= HighSpecMaxWinSize)
             && (svmChannels >= HighSpecMinCh)
             && (minProb >= HighSpecProbThreshold)) {
 
         distminimizer_send_feedback(svmResult);
 
-        if (initialized == Both)
-            emit_result(singleSpkTs, svmResult, true);
-        else if (initialized == NotDetected)
-            initialized = svmResult;
-        else if (initialized != svmResult)
-            initialized = Both;
+        static uint32_t lastSvmTs = 0;
 
-        if (svmResult == OnlyA)
+        if (((svmResult == OnlyA && lastPairMemberResult == OnlyB) ||
+             (svmResult == OnlyB && lastPairMemberResult == OnlyA))
+             && singleSpkTs - lastSvmTs <= HighSpecInterval) {
+            lastPairMemberResult = NotDetected;
+            initialized = true;
+        }
+        else {
+            lastPairMemberResult = svmResult;
+            lastSvmTs = singleSpkTs;
+        }
+
+        if (svmResult == OnlyA) {
+            fixA = size - ref;
             A_disagreement = 0;
-        else
+        }
+        else {
+            fixB = size - ref;
             B_disagreement = 0;
+        }
 
         return;
     }
 
-    //--------------------------------------------
+    lastPairMemberResult = NotDetected;
+
+    //-------------------------------------------------
     // Otherwise, if SVM does not have high specificity
 
     SpikesInWin feedback, result;
+    bool disagreement = false;
 
     if (dminResult == svmResult || svmResult == NotDetected) {
         // Just use and feedback the result if SVM and DistMinimizer agree
         feedback = result = dminResult;
     }
-    else if (initialized == Both
+    else if (initialized
+            && (size <= HighSpecMaxWinSize)
+            && (minProb >= HighSpecProbThreshold)
             && ((svmResult == OnlyA && A_disagreement >= ContinuityHysteresis) ||
                 (svmResult == OnlyB && B_disagreement >= ContinuityHysteresis))) {
-        // Use and feedback Only/OnlyB if disagreement is above the hysteresis
+        // Use and feedback OnlyA/OnlyB if disagreement is above the hysteresis
         feedback = result = svmResult;
-
-        if (svmResult == OnlyA)
-            A_disagreement = 0;
-        else
-            B_disagreement = 0;
     }
     else {
         // Otherwise, use DistMinimizer but skip an auto-feedback
-        result = dminResult;
-        feedback = Both;
+        //result = dminResult;
+        //feedback = Both;
+        feedback = result = dminResult;
+        disagreement = true;
+    }
 
+    if (disagreement) {
         if (svmResult == OnlyA)
             ++A_disagreement;
         else if (svmResult == OnlyB)
             ++B_disagreement;
     }
+    else {
+        if (result == OnlyA) {
+            fixA = size - ref;
+            A_disagreement = 0;
+        }
+        else if (result == OnlyB) {
+            fixB = size - ref;
+            B_disagreement = 0;
+        }
+    }
 
-    //--------------------------------------------
+    //--------------------------------
     // Emit final feedback and results
 
     distminimizer_send_feedback(feedback);
 
-    if (initialized == Both) {
+    if (initialized) {
         if (result == OnlyA || result == OnlyB) {
             emit_result(singleSpkTs, result, true);
         }
         else {
             const uint32_t base_ts = ts - size;
-            if (offA <= offB) {
-                emit_result(base_ts + offA, OnlyA, false);
-                emit_result(base_ts + offB, OnlyB, false);
+            const int posA = (offA + fixA) & 0xff;
+            const int posB = (offB + fixB) & 0xff;
+            if (posA < posB) {
+                emit_result(base_ts + posA, OnlyA, false);
+                emit_result(base_ts + posB, OnlyB, false);
             }
             else {
-                emit_result(base_ts + offB, OnlyB, false);
-                emit_result(base_ts + offA, OnlyA, false);
+                emit_result(base_ts + posB, OnlyB, false);
+                emit_result(base_ts + posA, OnlyA, false);
             }
         }
     }

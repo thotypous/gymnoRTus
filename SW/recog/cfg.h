@@ -37,11 +37,17 @@ enum { HighSpecMaxWinSize = 76 };
 //
 // Minimum channels: at least this number of channels should be
 // suitable for SVM classification.
-enum { HighSpecMinCh = 3 };
+enum { HighSpecMinCh = 4 };
 //
 // Probability threshold: every channel suitable for SVM must
 // produce a probability estimation above this threshold.
 static const double HighSpecProbThreshold = 0.999;
+//
+// Distance from last detection: used to construct spike pairs
+// which are close to each one, and are detected as different
+// individuals. Should be a time interval (expressed in number
+// of samples) within the refractory period.
+enum { HighSpecInterval = 400 };
 
 
 // If SVM disagrees with DistMinimizer for more than this
