@@ -51,6 +51,13 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 	rule doReset;
 		resetReq.deq;
 		ts <= 0;
+		beginning <= tagged Nothing;
+		activityStart <= tagged Nothing;
+		start <= 0;
+		lastActivity <= 0;
+		lastEnd <= 0;
+		maxHilbDuringActivity <= tuple2(0, Nothing);
+		lastHilb <= 0;
 	endrule
 
 	rule forwardSample (hilbSummer.first matches tagged ChSample .chsample);
