@@ -42,6 +42,7 @@ def setOffsets(offsets):
         assert offset >= minvalue
         assert offset <= maxvalue
         dev.setOffset(ch, offset)
+    dev.resetTs()
 
 
 def main():

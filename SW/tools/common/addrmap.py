@@ -8,6 +8,7 @@ WWinDMAStart        = Base + 0x04
 WWinDMAStop         = Base + 0x05
 WDMinFeedback       = Base + 0x08
 WSetOffset          = Base + 0x10
+WResetTs            = Base + 0x20
 
 RContinuousAcqAck   = Base + 0x00
 RMockADBusy         = Base + 0x02
