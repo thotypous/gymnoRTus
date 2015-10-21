@@ -52,3 +52,6 @@ class GymnortusPci(PciDev):
 
     def setOffset(self, ch, off):
         self.bar[0][addrmap.WSetOffset + ch] = off
+
+    def resetTs(self):
+        self.bar[0][addrmap.WResetTs] = 1
