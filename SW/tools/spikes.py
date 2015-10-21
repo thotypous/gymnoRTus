@@ -24,12 +24,12 @@ def iter_fifo_windows(fifofile):
     bytes_per_size = cfg.WordsNeedForAllCh * cfg.WordBytes
     padded_nchan = cfg.WordsNeedForAllCh * cfg.SamplesPerWord
     nchan = cfg.EnabledCh
-    
+
     bits = cfg.ADBits
     conv_ratio = cfg.VoltageScale / (1 << (bits - 1))
-    
+
     first_ts = None
-    
+
     while True:
         sizeref = fifofile.read(4)
         if sizeref == '':
@@ -48,9 +48,9 @@ def iter_fifo_windows(fifofile):
 def check_window(window, nchan, winSize, onlyAbove, satLow, satHigh):
     listWin = [window[c:nchan*winSize:nchan] for c in xrange(nchan)]
 
-    indexes_onlyabove = where(window > onlyAbove)
-    indexes_satLow = where(window < satLow)
-    indexes_satHigh = where(window > satHigh)
+    indexes_onlyabove = where(abs(window) >= onlyAbove)
+    indexes_satLow = where(window <= satLow)
+    indexes_satHigh = where(window >= satHigh)
 
     chan_to_remove = set( x % nchan for x in itertools.chain(indexes_satLow, indexes_satHigh) )
     chan_to_include = set( x % nchan for x in indexes_onlyabove)
@@ -77,7 +77,7 @@ def main():
     parser.add_argument('--winlen', type=argparse.FileType('w'), help='Output original window lengths to a text file')
 
     args = parser.parse_args()
-    
+
     fifofile = args.fifofile
     nchan = cfg.EnabledCh
     outfile = args.outfile
@@ -94,7 +94,7 @@ def main():
         satLow = float(saturation.split(',')[1].strip())
     onlyAbove = args.onlyabove
     winlenFile = args.winlen
-    
+
     afterRef += 1  # calc correction
     lastEventLen = 0
 
@@ -130,7 +130,7 @@ def main():
         else:
             samples = size
             window = win
-        
+
         filtered_windowsDic = check_window(window, nchan, samples, onlyAbove, satLow, satHigh)
         offset = ts*nchan*np.dtype('float32').itemsize
 
