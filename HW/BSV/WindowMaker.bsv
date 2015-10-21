@@ -34,7 +34,7 @@ interface WindowMaker;
 endinterface
 
 module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
-	Array#(Reg#(Timestamp)) cregTs <- mkCReg(2, 0);
+	Reg#(Timestamp) ts <- mkReg(0);
 	Reg#(Maybe#(Timestamp)) beginning <- mkReg(Nothing);
 	Reg#(Maybe#(Timestamp)) activityStart <- mkReg(Nothing);
 	Reg#(Timestamp) start <- mkReg(0);
@@ -46,7 +46,12 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 	let hilbSummer <- mkHilbertSummer(acq);
 	FIFOF#(OutItem) fifoOut <- mkFIFOF;
 
-	let ts = asReg(cregTs[0]);
+	FIFOF#(void) resetReq <- mkFIFOF;
+
+	rule doReset;
+		resetReq.deq;
+		ts <= 0;
+	endrule
 
 	rule forwardSample (hilbSummer.first matches tagged ChSample .chsample);
 		fifoOut.enq(tagged ChSample chsample);
@@ -58,7 +63,7 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 		return cExtend(abs(diff));
 	endfunction
 
-	rule processHilb (hilbSummer.first matches tagged HilbSum .hilb);
+	rule processHilb (hilbSummer.first matches tagged HilbSum .hilb &&& !resetReq.notEmpty);
 		ts <= ts + 1;
 
 		let deriv = absDiff(hilb, lastHilb);
@@ -132,7 +137,7 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 	endrule
 
 	method Action resetTs;
-		cregTs[1] <= 0;
+		resetReq.enq(?);
 	endmethod
 
 	interface out = f_FIFOF_to_PipeOut(fifoOut);
