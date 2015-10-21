@@ -52,8 +52,8 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 
 	let filteredPipe <- mkChannelFilter(tpl_2(adcFork));
 	let offsetSub <- mkOffsetSubtractor(filteredPipe);
-	let winPipe <- mkWindowMaker(offsetSub.out);
-	let winFork <- mkFork(duplicate, winPipe);
+	let wmaker <- mkWindowMaker(offsetSub.out);
+	let winFork <- mkFork(duplicate, wmaker.out);
 	let winDma <- mkWindowDMA(tpl_1(winFork), irqSender.irq[1]);
 	let winHaar <- mkLowpassHaar(tpl_2(winFork));
 	let distMin <- mkDistMinimizerSync(winHaar, winDma.sync);
@@ -125,6 +125,10 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			14'h1?:
 				action
 					offsetSub.setOffset(cmd.addr[3:0], truncate(cmd.data));
+				endaction
+			14'h20:
+				action
+					wmaker.resetTs;
 				endaction
 			endcase
 		Read:

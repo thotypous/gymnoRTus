@@ -16,7 +16,7 @@ module [Module] mkWindowMakerEmu(Empty);
 	Reg#(LUInt#(NumEnabledChannels)) chIndex <- mkReg(0);
 
 	let wmaker <- mkWindowMaker(f_FIFOF_to_PipeOut(acqfifo));
-	let wbuf <- mkWindowDMABuffer(wmaker);
+	let wbuf <- mkWindowDMABuffer(wmaker.out);
 
 	function ActionValue#(Sample) readSample = actionvalue
 		Bit#(16) word = 0;

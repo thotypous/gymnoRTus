@@ -28,8 +28,13 @@ typedef union tagged {
 	WindowInfo EndMarker;
 } OutItem deriving (Eq, Bits, FShow);
 
-module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
-	Reg#(Timestamp) ts <- mkReg(0);
+interface WindowMaker;
+	method Action resetTs;
+	interface PipeOut#(OutItem) out;
+endinterface
+
+module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
+	Array#(Reg#(Timestamp)) cregTs <- mkCReg(2, 0);
 	Reg#(Maybe#(Timestamp)) beginning <- mkReg(Nothing);
 	Reg#(Maybe#(Timestamp)) activityStart <- mkReg(Nothing);
 	Reg#(Timestamp) start <- mkReg(0);
@@ -40,6 +45,8 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 
 	let hilbSummer <- mkHilbertSummer(acq);
 	FIFOF#(OutItem) fifoOut <- mkFIFOF;
+
+	let ts = asReg(cregTs[0]);
 
 	rule forwardSample (hilbSummer.first matches tagged ChSample .chsample);
 		fifoOut.enq(tagged ChSample chsample);
@@ -124,5 +131,9 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (PipeOut#(OutItem));
 		maxHilbDuringActivity <= nextMaxHilb;
 	endrule
 
-	return f_FIFOF_to_PipeOut(fifoOut);
+	method Action resetTs;
+		cregTs[1] <= 0;
+	endmethod
+
+	interface out = f_FIFOF_to_PipeOut(fifoOut);
 endmodule
