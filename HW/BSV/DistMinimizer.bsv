@@ -150,7 +150,7 @@ typedef enum {
 	FeedbackCopy
 } State deriving (Eq, Bits, FShow);
 
-typedef Int#(TAdd#(SampleBits,1)) SampleDiff;
+typedef Int#(TAdd#(SampleBits,2)) SampleDiff;
 typedef Vector#(WindowMaxSize, Reg#(Sample)) RegVec;
 
 module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (SingleChDistMinimizer);
@@ -334,7 +334,7 @@ module [Module] mkSingleChDistMinimizer#(PipeOut#(SingleChItem) winPipe) (Single
 	rule calcFirstLevel;
 		for (Integer i = 0; i < valueOf(WindowMaxSize); i = i + 1) begin
 			Sample spikeSum = boundedPlus(spikeA[i], spikeB[i]);
-			SampleDiff diff = cExtend(segment[i]) - cExtend(spikeSum);
+			SampleDiff diff = extend(segment[i]) - extend(spikeSum);
 			firstLevel[i] <= truncate(pack(abs(diff)));
 		end
 	endrule
