@@ -11,10 +11,20 @@
 #include "wavelet.h"
 #include "svm.h"
 
-#define KB  1024
-#define MB  1024*KB
+// ------------
+// FIFO defines
 
 #define FIFO_DATA    0
+#define FIFO_DEBUG   2
+
+#if defined(FIFO_DEBUG)
+#define rtf_put_dbg(var) rtf_put(FIFO_DEBUG, (void*)&(var), (sizeof(var)))
+#else
+#define rtf_put_dbg(var) do {} while(0)
+#endif
+
+// -------------------
+// PCI address defines
 
 // Base address (bar0)
 #define PCIE_AVALONTOP  0x0000
@@ -36,6 +46,17 @@
 #define DMA_BUF_WORDS (2*DMA_WORDS_REQUIRED_FOR_ALL_CH*WIN_MAX_SIZE)
 #define DMA_BUF_SIZE (DMA_BUF_WORDS*sizeof(uint64_t))
 
+// ------------
+// Misc defines
+
+#define KB  1024
+#define MB  1024*KB
+
+#define WRAP_WIN(x) ((x) & (2*WaveletInSize - 1))
+
+// -----------------------
+// PCI / IRQ / DMA globals
+
 static void *avalontop_base;
 
 static uint8_t n_devices = 0;
@@ -44,32 +65,44 @@ static uint32_t epoch = 1;
 static uint64_t *dma_ptr = NULL;
 static dma_addr_t dma_handle;
 
+// -----
+// Enums
+
 typedef enum {
-    NotDetected = -1,
-    Both = 0,
-    OnlyA = 1,
-    OnlyB = 2
+    NotDetected = 0,
+    A = 1,
+    B = 2,
+    Both = A | B,
 } SpikesInWin;
 
-// -------- FP/vector units context saving --------
+static inline bool __attribute__((pure)) is_single(const SpikesInWin spk) {
+    return (spk == A) || (spk == B);
+}
+
+#define IARRSZ (B + 1)
+#define INDIVARR(a, b) {0, (a), (b)}
+
+// -------------------------------------------------
+// FP/vector unit context saving for the IRQ routine
 static FPU_ENV saved_fpu_reg, our_fpu_reg;
 static unsigned long saved_cr0;
 
-// Called for each detected spike
+
+//-------------------------------------------------
+// This function is called for each detected spike.
 // ts: spike timestamp
-// individual: 1 for A, 2 for B
-// alone_in_window: true if the window was OnlyA or OnlyB, false if it was Both
-static void emit_result(uint32_t ts, int32_t individual, int32_t alone_in_window) {
+// individual: A or B
+static void emit_result(uint32_t ts, SpikesInWin individual) {
+    WARN_ON(!is_single(individual));
     rtf_put(FIFO_DATA, (void*)&ts, sizeof(ts));
     rtf_put(FIFO_DATA, (void*)&individual, sizeof(individual));
-    rtf_put(FIFO_DATA, (void*)&alone_in_window, sizeof(alone_in_window));
 }
+
 
 // Get the result from the DistMinimizer hardware module
 static inline void distminimizer_get_result(SpikesInWin *spk, int *offA, int *offB) {
     while (!ioread32(avalontop_base + AVALONTOP_DMINRDY));
     uint32_t rotspk = ioread32(avalontop_base + AVALONTOP_DMINGET);
-    //rt_printk("gymnort_recog: dmin result = %08x\n", regval);
     *spk = rotspk & 0xffff;
     if (*spk == Both) {
         const int rot = rotspk >> 16;
@@ -79,20 +112,26 @@ static inline void distminimizer_get_result(SpikesInWin *spk, int *offA, int *of
 }
 
 static inline void distminimizer_send_feedback(SpikesInWin feedback) {
-    BUG_ON(feedback == NotDetected);
+    WARN_ON(feedback == NotDetected);
     iowrite32(feedback, avalontop_base + AVALONTOP_DMINFBK);
 }
 
 // Process a window received from the WindowMaker hardware module
 // The caller is responsible for saving/restoring FP/vector unit state.
 // Calls emit_result for each detected spike.
-static void process_window(const void *in, const uint32_t ts, const int size, const int ref) {
+static noinline void process_window(const void *in, const uint32_t ts, const int size, const int ref) {
+    const uint32_t singleSpkTs = ts - ref;
+
     static float ALIGNED(32) sig[NumChannels][WaveletOutSize];
     static float ALIGNED(32) max_amplitude[NumChannels] = {};
     static double ALIGNED(32) features[NumFeatures];
 
-    //-------------------------------
-    // Classify all suitable channels
+    rtf_put_dbg(ts);
+    rtf_put_dbg(size);
+    rtf_put_dbg(ref);
+
+    //-----------------------------------------
+    // Classify all suitable channels using SVM
 
     prepare_window((const aint16 *)in, size, ref, sig);
     for (int ch = 0; ch < NumChannels; ch++)
@@ -110,10 +149,7 @@ static void process_window(const void *in, const uint32_t ts, const int size, co
                 svm_prepare_features(sig[ch], features);
                 const double dec_val = svm_decision_value(features);
 
-                if (dec_val >= 0.0)
-                    svmResult = (svmResult == OnlyB || svmResult == Both) ? Both : OnlyA;
-                else
-                    svmResult = (svmResult == OnlyA || svmResult == Both) ? Both : OnlyB;
+                svmResult |= (dec_val >= 0.0) ? A : B;
 
                 const double prob = sigmoid_predict(dec_val);
                 minProb = __builtin_fmin(minProb, __builtin_fmax(prob, 1.0-prob));
@@ -123,124 +159,154 @@ static void process_window(const void *in, const uint32_t ts, const int size, co
         }
     }
 
-    //rt_printk("gymnort_recog: SVM: ch=%d, prob=%d, result=%d\n", svmChannels, (int)(10000*minProb), svmResult);
+    rtf_put_dbg(svmChannels);
+    rtf_put_dbg(minProb);
+    rtf_put_dbg(svmResult);
 
     //--------------------------------------------
     // Obtain DistMinimizer hardware module result
 
     SpikesInWin dminResult;
     int offA = 0, offB = 0;
-    static int fixA = 0, fixB = 0;
     distminimizer_get_result(&dminResult, &offA, &offB);
-    //rt_printk("gymnort_recog: DMin: result=%d, offA=%d, offB=%d\n", dminResult, offA, offB);
 
-    //----------------------------------------------------------------
-    // Initialize DistMinimizer if SVM detects a high specificity pair
+    rtf_put_dbg(dminResult);
+    rtf_put_dbg(offA);
+    rtf_put_dbg(offB);
+
+    //----------------------------------------------
+    // Declare last timestamp and last IPI variables
+
+    static uint32_t last_ts [IARRSZ] = INDIVARR(1<<31, 1<<31);
+    static uint32_t last_ipi[IARRSZ] = INDIVARR(0, 0);
+
+    //------------------------------------------------------------
+    // Check for detection in forbidden region (refractory period)
+
+    bool svmPoisoned = false;
+
+#define CHECK_FORB(indiv) do { \
+    if (ts - last_ts[indiv] <= RefractoryPeriod) { \
+        svmPoisoned = svmPoisoned || ((svmResult & indiv) != 0); \
+        svmResult &= ~indiv; \
+        dminResult &= ~indiv; \
+    } } while(0)
+
+    CHECK_FORB(A);
+    CHECK_FORB(B);
+#undef CHECK_FORB
+
+    rtf_put_dbg(svmPoisoned);
+    rtf_put_dbg(svmResult);
+    rtf_put_dbg(dminResult);
+
+    //-----------------------------------------------------------
+    // Sync DistMinimizer if SVM detects high specificity results
+
+    static SpikesInWin syncStatus = NotDetected;
+    rtf_put_dbg(syncStatus);
 
     static bool initialized = false;
-    static int A_disagreement = 0, B_disagreement = 0;
-    const uint32_t singleSpkTs = ts - ref;
- 
-    static SpikesInWin lastPairMemberResult = NotDetected;
+    if (syncStatus == Both)
+        initialized = true;
 
-    if (!initialized
-            && (svmResult == OnlyA || svmResult == OnlyB)
+    SpikesInWin feedback = Both, result = NotDetected;
+
+    if ((syncStatus != Both)
+            && !svmPoisoned
+            && is_single(svmResult)
             && (size <= HighSpecMaxWinSize)
             && (svmChannels >= HighSpecMinCh)
             && (minProb >= HighSpecProbThreshold)) {
 
-        distminimizer_send_feedback(svmResult);
+        if ((syncStatus & svmResult) == 0) {
+            result = feedback = svmResult;
+            syncStatus |= svmResult;
+        }
 
-        static uint32_t lastSvmTs = 0;
+    }
 
-        if (((svmResult == OnlyA && lastPairMemberResult == OnlyB) ||
-             (svmResult == OnlyB && lastPairMemberResult == OnlyA))
-             && singleSpkTs - lastSvmTs <= HighSpecInterval) {
-            lastPairMemberResult = NotDetected;
-            initialized = true;
+    //--------------------------------------
+    // Combine SVM and DistMinimizer results
+
+    static int disagreement = 0;
+    rtf_put_dbg(disagreement);
+
+    // If not detected by high specificity treatment above
+    if (result == NotDetected) {
+        if (svmResult == dminResult) {
+            result = svmResult;
+
+            if (!svmPoisoned) {
+                disagreement = 0;
+                feedback = result;
+            }
+        }
+        else if (svmResult == NotDetected) {
+            result = feedback = dminResult;
         }
         else {
-            lastPairMemberResult = svmResult;
-            lastSvmTs = singleSpkTs;
+            ++disagreement;
+
+            const uint32_t posA_guess = last_ts[A] + last_ipi[A] - ts + size;
+            const uint32_t posB_guess = last_ts[B] + last_ipi[B] - ts + size;
+            const SpikesInWin spk_guess =
+                    ((posA_guess >= 0 && posA_guess <= size) * A) |
+                    ((posB_guess >= 0 && posB_guess <= size) * B);
+
+            if ((svmResult == spk_guess || dminResult == spk_guess) && spk_guess != NotDetected)
+                result = feedback = spk_guess;
+            else
+                result = dminResult;
         }
 
-        if (svmResult == OnlyA) {
-            fixA = size - ref;
-            A_disagreement = 0;
-        }
-        else {
-            fixB = size - ref;
-            B_disagreement = 0;
-        }
-
-        return;
-    }
-
-    lastPairMemberResult = NotDetected;
-
-    //-------------------------------------------------
-    // Otherwise, if SVM does not have high specificity
-
-    SpikesInWin feedback, result;
-    bool disagreement = false;
-
-    if (dminResult == svmResult || svmResult == NotDetected) {
-        // Just use and feedback the result if SVM and DistMinimizer agree
-        feedback = result = dminResult;
-    }
-    else if (initialized
-            && (size <= HighSpecMaxWinSize)
-            && (minProb >= HighSpecProbThreshold)
-            && ((svmResult == OnlyA && A_disagreement >= ContinuityHysteresis) ||
-                (svmResult == OnlyB && B_disagreement >= ContinuityHysteresis))) {
-        // Use and feedback OnlyA/OnlyB if disagreement is above the hysteresis
-        feedback = result = svmResult;
-    }
-    else {
-        // Otherwise, use DistMinimizer but skip an auto-feedback
-        //result = dminResult;
-        //feedback = Both;
-        feedback = result = dminResult;
-        disagreement = true;
-    }
-
-    if (disagreement) {
-        if (svmResult == OnlyA)
-            ++A_disagreement;
-        else if (svmResult == OnlyB)
-            ++B_disagreement;
-    }
-    else {
-        if (result == OnlyA) {
-            fixA = size - ref;
-            A_disagreement = 0;
-        }
-        else if (result == OnlyB) {
-            fixB = size - ref;
-            B_disagreement = 0;
+        if (disagreement >= ContinuityHysteresis) {
+            syncStatus = NotDetected;
+            disagreement = 0;
         }
     }
 
     //--------------------------------
     // Emit final feedback and results
 
+    rtf_put_dbg(feedback);
+    rtf_put_dbg(result);
+
     distminimizer_send_feedback(feedback);
 
-    if (initialized) {
-        if (result == OnlyA || result == OnlyB) {
-            emit_result(singleSpkTs, result, true);
+    static int start_to_ref[IARRSZ] = INDIVARR(0, 0);
+
+    if (is_single(result)) {
+        // Update distance of reference from start of window
+        start_to_ref[result] = size - ref;
+        // Update IPI / timestamp values
+        last_ipi[result] = singleSpkTs - last_ts[result];
+        last_ts [result] = singleSpkTs;
+        // Emit result
+        if (likely(initialized)) {
+            emit_result(singleSpkTs, result);
         }
-        else {
-            const uint32_t base_ts = ts - size;
-            const int posA = (offA + fixA) & 0xff;
-            const int posB = (offB + fixB) & 0xff;
-            if (posA < posB) {
-                emit_result(base_ts + posA, OnlyA, false);
-                emit_result(base_ts + posB, OnlyB, false);
+    }
+    else if (result == Both) {
+        const uint32_t start_ts = ts - size;
+        const int posA = WRAP_WIN(offA + start_to_ref[A]);
+        const int posB = WRAP_WIN(offB + start_to_ref[B]);
+        const uint32_t ts_A = start_ts + posA;
+        const uint32_t ts_B = start_ts + posB;
+        // Update IPI / timestamp values
+        last_ipi[A] = ts_A - last_ts[A];
+        last_ipi[B] = ts_B - last_ts[B];
+        last_ts [A] = ts_A;
+        last_ts [B] = ts_B;
+        // Emit result
+        if (likely(initialized)) {
+            if (posA <= posB) {
+                emit_result(ts_A, A);
+                emit_result(ts_B, B);
             }
             else {
-                emit_result(base_ts + posB, OnlyB, false);
-                emit_result(base_ts + posA, OnlyA, false);
+                emit_result(ts_B, B);
+                emit_result(ts_A, A);
             }
         }
     }
@@ -379,6 +445,9 @@ static int __init m_init(void) {
     save_fpenv(our_fpu_reg);
 
     rtf_create(FIFO_DATA, 16*MB);
+#if defined(FIFO_DEBUG)
+    rtf_create(FIFO_DEBUG, 16*MB);
+#endif
 
     // Register PCI Driver
     // IRQ is requested on pci_probe
@@ -395,6 +464,9 @@ static void __exit m_exit(void) {
     iowrite32(0, avalontop_base + AVALONTOP_WSTOP);
 
     rtf_destroy(FIFO_DATA);
+#if defined(FIFO_DEBUG)
+    rtf_destroy(FIFO_DEBUG);
+#endif
 
     pci_unregister_driver(&pci_driver);
     rt_printk("gymnort_recog: pci driver unregistered.\n");
