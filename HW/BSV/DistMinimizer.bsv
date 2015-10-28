@@ -29,9 +29,9 @@ typedef TAdd#(SingleChSumBits, TLog#(NumEnabledChannels)) FinalSumBits;
 typedef Bit#(FinalSumBits) FinalSum;
 
 typedef enum {
-	Both = 0,
 	OnlyA = 1,
-	OnlyB = 2
+	OnlyB = 2,
+	Both = 3
 } SpikesInWin deriving(Eq, Bits, FShow);
 
 typedef struct {
