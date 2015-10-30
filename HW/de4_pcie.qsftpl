@@ -142,8 +142,8 @@ set_location_assignment PIN_AV5 -to GPIO0_D[6]
 set_location_assignment PIN_AW6 -to GPIO0_D[7]
 set_location_assignment PIN_AV7 -to GPIO0_D[8]
 set_location_assignment PIN_AW7 -to GPIO0_D[9]
-set_location_assignment PIN_AW5 -to GPIO1_D[0]
-set_location_assignment PIN_AW8 -to GPIO1_D[1]
+set_location_assignment PIN_AW5 -to DIGITAL_OUT[0]
+set_location_assignment PIN_AW8 -to DIGITAL_OUT[1]
 set_location_assignment PIN_AU6 -to AD_DOUT0
 set_location_assignment PIN_AT6 -to AD_SSTRB0
 set_location_assignment PIN_AU7 -to AD_DOUT1
@@ -905,8 +905,8 @@ set_instance_assignment -name IO_STANDARD "3.0-V PCI-X" -to GPIO0_D[6]
 set_instance_assignment -name IO_STANDARD "3.0-V PCI-X" -to GPIO0_D[7]
 set_instance_assignment -name IO_STANDARD "3.0-V PCI-X" -to GPIO0_D[8]
 set_instance_assignment -name IO_STANDARD "3.0-V PCI-X" -to GPIO0_D[9]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO1_D[0]
-set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO1_D[1]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DIGITAL_OUT[0]
+set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to DIGITAL_OUT[1]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AD_DOUT0
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AD_SSTRB0
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to AD_DOUT1
@@ -941,8 +941,8 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO1_D[6]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO1_D[7]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO1_D[8]
 set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GPIO1_D[9]
-set_instance_assignment -name SLEW_RATE 3 -to GPIO1_D[0]
-set_instance_assignment -name SLEW_RATE 3 -to GPIO1_D[1]
+set_instance_assignment -name SLEW_RATE 3 -to DIGITAL_OUT[0]
+set_instance_assignment -name SLEW_RATE 3 -to DIGITAL_OUT[1]
 set_instance_assignment -name SLEW_RATE 3 -to AD_DOUT0
 set_instance_assignment -name SLEW_RATE 3 -to AD_SSTRB0
 set_instance_assignment -name SLEW_RATE 3 -to AD_DOUT1
@@ -977,8 +977,8 @@ set_instance_assignment -name SLEW_RATE 3 -to GPIO1_D[6]
 set_instance_assignment -name SLEW_RATE 3 -to GPIO1_D[7]
 set_instance_assignment -name SLEW_RATE 3 -to GPIO1_D[8]
 set_instance_assignment -name SLEW_RATE 3 -to GPIO1_D[9]
-set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to GPIO1_D[0]
-set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to GPIO1_D[1]
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to DIGITAL_OUT[0]
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to DIGITAL_OUT[1]
 set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AD_DOUT0
 set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AD_SSTRB0
 set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AD_DOUT1

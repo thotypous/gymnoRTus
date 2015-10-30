@@ -7,6 +7,7 @@ module de4_pcie_top(
         output [3:0] PCIE_TX_p,
 
         output [7:0] LED,
+        output [1:0] DIGITAL_OUT,
 
         input AD_DOUT0,
         input AD_SSTRB0,
@@ -48,6 +49,7 @@ module de4_pcie_top(
         .adc_ad_sclk_clk                         (AD_SCLK),
 
         .led_led                                 (LED),
+        .digital_out_digital_out                 (DIGITAL_OUT),
 
         .pcie_reconfig_gxbclk_clk                (OSC_50_BANK2),
         .pcie_reconfig_fromgxb_0_data            (pcie_reconfig_fromgxb_0_data),

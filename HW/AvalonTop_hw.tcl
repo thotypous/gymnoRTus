@@ -187,6 +187,21 @@ add_interface_port conduit_led LED led Output 8
 
 
 # 
+# connection point conduit_digital_out
+# 
+add_interface conduit_digital_out conduit end
+set_interface_property conduit_digital_out associatedClock clock
+set_interface_property conduit_digital_out associatedReset ""
+set_interface_property conduit_digital_out ENABLED true
+set_interface_property conduit_digital_out EXPORT_OF ""
+set_interface_property conduit_digital_out PORT_NAME_MAP ""
+set_interface_property conduit_digital_out CMSIS_SVD_VARIABLES ""
+set_interface_property conduit_digital_out SVD_ADDRESS_GROUP ""
+
+add_interface_port conduit_digital_out DIGITAL_OUT digital_out Output 8
+
+
+# 
 # connection point clock_slow
 # 
 add_interface clock_slow clock end

@@ -31,6 +31,8 @@ interface AvalonTop;
 	interface DualADWires adWires;
 	(* always_ready, result="LED" *)
 	method Bit#(8) getLed;
+	(* always_ready, result="DIGITAL_OUT" *)
+	method Bit#(2) getDigitalOut;
 endinterface
 
 (* synthesize, clock_prefix="clk", reset_prefix="reset_n" *)
@@ -199,5 +201,7 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		pack(adcMock.isBusy),
 		pack(adcMocked)
 	});
+
+	method Bit#(2) getDigitalOut = 0;
 
 endmodule

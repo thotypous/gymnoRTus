@@ -127,4 +127,5 @@ set_output_delay -clock $AD_SCLK -reference_pin [get_ports {AD_SCLK}] -min -8.00
 set_false_path -to [get_ports {AD_SCLK}]
 
 set_false_path -to [get_ports {LED[*]}]
+set_false_path -to [get_ports {DIGITAL_OUT[*]}]
 set_false_path -from [get_ports {PCIE_PREST_n}]

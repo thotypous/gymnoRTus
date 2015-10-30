@@ -163,6 +163,11 @@
    type="conduit"
    dir="end" />
  <interface
+   name="digital_out"
+   internal="AvalonTop_0.conduit_digital_out"
+   type="conduit"
+   dir="end" />
+ <interface
    name="pcie_clocks_sim"
    internal="pcie_hard_ip_0.clocks_sim"
    type="conduit"
