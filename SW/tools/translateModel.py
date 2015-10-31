@@ -44,7 +44,7 @@ def gen_svm(filename, svm):
         f.write('static const double svm_probB = %.12e;\n\n' % svm.probB)
         sv_coef_pad = np.concatenate((svm.sv_coef, np.zeros((4, ))))
         write_arr(f, 'svm_sv_coef[svm_l + 4]', sv_coef_pad)
-        f.write('static const double svm_SV[svm_l][NumFeatures] ALIGN(32) = {\n')
+        f.write('static const double svm_SV[svm_l][NumFeatures] ALIGNED(32) = {\n')
         for i in xrange(svm.l):
             f.write('    {' + ', '.join('%.12e'%x for x in svm.SV[i,:]) + '}, \n')
         f.write('};\n')
@@ -61,7 +61,7 @@ def gen_cfg(filename):
 
 
 def write_arr(f, name, contents):
-    f.write('static const double %s ALIGN(32) = {\n' % name)
+    f.write('static const double %s ALIGNED(32) = {\n' % name)
     f.write('    ' + ', '.join('%.12e'%x for x in contents) + '\n')
     f.write('};\n\n')
 
