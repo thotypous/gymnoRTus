@@ -15,7 +15,7 @@
 // FIFO defines
 
 #define FIFO_DATA    0
-#define FIFO_DEBUG   2
+//#define FIFO_DEBUG   2
 
 #if defined(FIFO_DEBUG)
 #define rtf_put_dbg(var) rtf_put(FIFO_DEBUG, (void*)&(var), (sizeof(var)))
@@ -40,11 +40,22 @@
 #define AVALONTOP_DMINGET 0x28
 #define AVALONTOP_DMINFBK 0x20
 
+#define AVALONTOP_SCHEDPULSE 0x84
+#define AVALONTOP_WISRSTATUS 0x88
+
 #define DMA_BITS 32
 #define DMA_WORDS_REQUIRED_FOR_ALL_CH 3
 #define WIN_MAX_SIZE 256
 #define DMA_BUF_WORDS (2*DMA_WORDS_REQUIRED_FOR_ALL_CH*WIN_MAX_SIZE)
 #define DMA_BUF_SIZE (DMA_BUF_WORDS*sizeof(uint64_t))
+
+
+#if defined(AVALONTOP_WISRSTATUS)
+#define WISRSTATUS(x) iowrite32((x), avalontop_base + AVALONTOP_WISRSTATUS)
+#else
+#define WISRSTATUS(x) do {} while(0)
+#endif
+
 
 // ------------
 // Misc defines
@@ -319,6 +330,8 @@ static int irq_handler(unsigned irq, void *cookie_) {
     //rt_printk("gymnort_recog: got IRQ, flag=%d, is_ours=%d.\n", flag, irq_is_ours);
 
     if (likely(irq_is_ours)) {
+        WISRSTATUS(1);
+
         const int firstIndex = (flag % 2 == 1) ? 0 : DMA_BUF_WORDS/2;
         const uint32_t refsz = ioread32(avalontop_base + AVALONTOP_GSZREF);
         const int size = refsz & 0xffff;
@@ -336,6 +349,8 @@ static int irq_handler(unsigned irq, void *cookie_) {
         restore_fpcr(saved_cr0);
 
         ++epoch;
+
+        WISRSTATUS(0);
     }
 
     rt_unmask_irq(irq);
