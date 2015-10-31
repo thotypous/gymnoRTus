@@ -198,7 +198,7 @@ set_interface_property conduit_digital_out PORT_NAME_MAP ""
 set_interface_property conduit_digital_out CMSIS_SVD_VARIABLES ""
 set_interface_property conduit_digital_out SVD_ADDRESS_GROUP ""
 
-add_interface_port conduit_digital_out DIGITAL_OUT digital_out Output 8
+add_interface_port conduit_digital_out DIGITAL_OUT digital_out Output 2
 
 
 # 
