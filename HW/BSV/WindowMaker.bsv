@@ -30,11 +30,13 @@ typedef union tagged {
 
 interface WindowMaker;
 	method Action resetTs;
+	method Timestamp curTs;
 	interface PipeOut#(OutItem) out;
 endinterface
 
 module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 	Reg#(Timestamp) ts <- mkReg(0);
+	Reg#(Timestamp) tsBuf <- mkReg(0);
 	Reg#(Maybe#(Timestamp)) beginning <- mkReg(Nothing);
 	Reg#(Maybe#(Timestamp)) activityStart <- mkReg(Nothing);
 	Reg#(Timestamp) start <- mkReg(0);
@@ -57,6 +59,10 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 		lastEnd <= 0;
 		maxHilbDuringActivity <= tuple2(0, Nothing);
 		lastHilb <= 0;
+	endrule
+
+	rule updateTsBuf;
+		tsBuf <= ts;
 	endrule
 
 	rule forwardSample (hilbSummer.first matches tagged ChSample .chsample);
@@ -142,9 +148,7 @@ module [Module] mkWindowMaker#(PipeOut#(ChSample) acq) (WindowMaker);
 		maxHilbDuringActivity <= nextMaxHilb;
 	endrule
 
-	method Action resetTs;
-		resetReq.enq(?);
-	endmethod
-
+	method resetTs = resetReq.enq(?);
+	method curTs = tsBuf;
 	interface out = f_FIFOF_to_PipeOut(fifoOut);
 endmodule

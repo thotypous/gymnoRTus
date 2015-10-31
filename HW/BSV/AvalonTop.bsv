@@ -11,6 +11,7 @@ import WindowDMA::*;
 import LowpassHaar::*;
 import DistMinimizer::*;
 import DistMinimizerSync::*;
+import ProgrammablePulser::*;
 import PipeUtils::*;
 import MonadUtils::*;
 import SysConfig::*;
@@ -59,6 +60,9 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 	let winDma <- mkWindowDMA(tpl_1(winFork), irqSender.irq[1]);
 	let winHaar <- mkLowpassHaar(tpl_2(winFork));
 	let distMin <- mkDistMinimizerSync(winHaar, winDma.sync);
+
+	let pulser <- mkProgrammablePulser(wmaker.curTs);
+	Reg#(Bit#(1)) isrStatusBit <- mkReg(0);
 
 
 	function avalonWriteReq(req) = AvalonRequest{
@@ -131,6 +135,15 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 			14'h20:
 				action
 					wmaker.resetTs;
+					pulser.clear;
+				endaction
+			14'h21:
+				action
+					pulser.sched.put(truncate(cmd.data));
+				endaction
+			14'h22:
+				action
+					isrStatusBit <= pack(cmd.data != 0);
 				endaction
 			endcase
 		Read:
@@ -202,6 +215,9 @@ module [Module] mkAvalonTop(Clock adsclk, Clock slowclk, AvalonTop ifc);
 		pack(adcMocked)
 	});
 
-	method Bit#(2) getDigitalOut = 0;
+	method Bit#(2) getDigitalOut = {
+		isrStatusBit,
+		pulser.pulse
+	};
 
 endmodule
