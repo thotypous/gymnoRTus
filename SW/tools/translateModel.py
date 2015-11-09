@@ -102,10 +102,12 @@ class SVMModel(object):
     def _read_contents(self, f):
         lines = list(f.xreadlines())
 
-        self.elements = 0
+        min_idx, max_idx = np.inf, 0
         for line in lines:
-            self.elements = max(itertools.chain([self.elements],
-                (int(m.group(1))+1 for m in re.finditer(r'\s(\d+):', line))))
+            iter_idx = lambda: (int(m.group(1))+1 for m in re.finditer(r'\s(\d+):', line))
+            max_idx = max(itertools.chain([max_idx], iter_idx()))
+            min_idx = min(itertools.chain([min_idx], iter_idx()))
+        self.elements = max_idx - min_idx + 1
 
         self.sv_coef = np.zeros((self.l,))
         self.SV = np.zeros((self.l, self.elements))
@@ -113,7 +115,10 @@ class SVMModel(object):
         for i, line in enumerate(lines):
             a = line.strip().split()
             self.sv_coef[i] = float(a[0])
-            self.SV[i,:] = np.array([float(c.split(':',1)[1]) for c in a[1:]])
+            for col, val in (c.split(':',1) for c in a[1:]):
+                col = int(col)
+                val = float(val)
+                self.SV[i,col] = val
 
     def __repr__(self):
         return '<SVMModel l=%d gamma=%f probA=%f probB=%f>' % \
