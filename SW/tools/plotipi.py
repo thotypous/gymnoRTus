@@ -10,7 +10,7 @@ import matplotlib.animation as animation
 import itertools
 
 dev = os.open(cfg.RecogDev, os.O_RDONLY | os.O_NONBLOCK)
-atexit.register(lambda: os.close(fd))
+atexit.register(lambda: os.close(dev))
 
 fig, ax = plt.subplots(subplot_kw={'axisbg': 'black'})
 
@@ -27,7 +27,10 @@ def animate(i):
     global buf, ts_off, ts_A, ts_B, lineA, lineB
 
     datum_size = 2*4
-    buf += os.read(dev, datum_size*4096)
+    try:
+        buf += os.read(dev, datum_size*4096)
+    except OSError:
+        pass
 
     num_spk = len(buf) // datum_size
     usable_len = num_spk * datum_size
