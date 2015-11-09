@@ -10,6 +10,7 @@ EnabledCh = 11             # channels
 VoltageScale = 10          # V
 
 ContinuousAcqDev = '/dev/rtf0'
+RecogDev = '/dev/rtf0'
 
 # scope config
 ScopeViewWords = 1280      # words
@@ -24,3 +25,8 @@ SpikesAfterRef = 35        # samples, set to WindowMaker's forceSamplesAfterMax
 
 # translateModel config
 DtcwptOffset = 64          # gymnotools's NumFFTFeatures
+
+# plotipi config
+PlotIpiViewTime = 60        # s
+PlotIpiViewIpiScale = 50    # ms
+PlotIpiRenderInterval = 200 # ms
